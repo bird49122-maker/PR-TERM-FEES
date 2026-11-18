@@ -1,0 +1,2244 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PR-TERM FEES | ระบบบริหารจัดการค่าเทอม</title>
+    
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <!-- Supabase JS -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <!-- HTML2PDF -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
+    <!-- SweetAlert2 -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Sarabun', 'sans-serif'] },
+                    colors: {
+                        primary: '#4f46e5',
+                        secondary: '#475569',
+                        success: '#10b981',
+                        danger: '#ef4444',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { font-family: 'Sarabun', sans-serif; background-color: #f8fafc; overflow-x: hidden; font-size: 16px; }
+        .glassmorphism { background: rgba(255, 255, 255, 0.7); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.3); }
+        .hide-scroll::-webkit-scrollbar { display: none; }
+        .fade-in { animation: fadeIn 0.3s ease-in-out; }
+        .slide-up { animation: slideUp 0.4s ease-in-out; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        .loader { border: 3px solid #f3f3f3; border-radius: 50%; border-top: 3px solid #4f46e5; width: 24px; height: 24px; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .swal2-container { font-family: 'Sarabun', sans-serif !important; }
+    </style>
+</head>
+<body class="text-slate-800 antialiased">
+
+    <!-- Global Loader -->
+    <div id="globalLoader" class="hidden fixed inset-0 w-full h-full bg-white/80 z-[9999] flex-col justify-center items-center">
+        <div class="flex flex-col items-center">
+            <div class="loader mb-2" style="width: 50px; height: 50px; border-width: 5px;"></div>
+            <p class="text-primary font-semibold">กำลังโหลดข้อมูล...</p>
+        </div>
+    </div>
+
+    <!-- 1. LANDING PAGE (Guest) -->
+    <div id="landingPage" class="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-indigo-50 to-white p-4">
+        <div class="w-full max-w-4xl glassmorphism rounded-2xl shadow-lg p-8 slide-up text-center">
+            
+            <!-- ส่วนแสดงโลโก้โรงเรียน -->
+            <div class="flex justify-center mb-4">
+                <div id="lp-logo-wrapper" class="bg-primary text-white p-4 rounded-full shadow-md flex items-center justify-center w-24 h-24 md:w-28 md:h-28 overflow-hidden transition-all">
+                    <i data-lucide="graduation-cap" id="lp-default-icon" class="w-12 h-12 md:w-14 md:h-14"></i>
+                    <img id="lp-school-logo-img" src="" class="hidden w-full h-full object-contain">
+                </div>
+            </div>
+            
+            <h1 class="text-3xl md:text-4xl font-bold text-slate-800 mb-2" id="lp-schoolName">ระบบบริหารจัดการค่าเทอม</h1>
+            <p class="text-slate-500 mb-8" id="lp-termInfo">ปีการศึกษา - / -</p>
+            
+            <!-- กล่องสถิติ ดึงข้อมูลตามจริง (4 กล่องเหมือน Dashboard) -->
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+                <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-100">
+                    <p class="text-slate-500 text-xs md:text-sm">นักเรียนทั้งหมด</p>
+                    <h3 class="text-2xl font-bold text-primary" id="lp-totalStudent">0</h3>
+                </div>
+                <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-100">
+                    <p class="text-slate-500 text-xs md:text-sm">ชำระครบแล้ว</p>
+                    <h3 class="text-2xl font-bold text-success" id="lp-paidStudent">0</h3>
+                </div>
+                <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-100">
+                    <p class="text-slate-500 text-xs md:text-sm">จ่ายยังไม่ครบ</p>
+                    <h3 class="text-2xl font-bold text-amber-500" id="lp-partialStudent">0</h3>
+                </div>
+                <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-100">
+                    <p class="text-slate-500 text-xs md:text-sm">ยังไม่จ่าย</p>
+                    <h3 class="text-2xl font-bold text-danger" id="lp-unpaidStudent">0</h3>
+                </div>
+            </div>
+
+            <!-- Login Form -->
+            <div class="max-w-sm mx-auto bg-white p-6 rounded-2xl shadow-md border border-slate-100">
+                <h2 class="text-xl font-semibold mb-4 text-left">เข้าสู่ระบบ</h2>
+                <form id="loginForm" onsubmit="handleLogin(event)">
+                    <div class="mb-4 text-left">
+                        <label class="block text-sm text-slate-600 mb-1">รหัสประจำตัว / เลขบัตรประชาชน</label>
+                        <div class="relative">
+                            <i data-lucide="user" class="absolute left-3 top-3 text-slate-400 w-5 h-5"></i>
+                            <input type="text" id="loginUsername" class="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary outline-none transition" placeholder="กรอกรหัสของคุณ" required>
+                        </div>
+                    </div>
+                    <button type="submit" class="w-full bg-primary text-white py-2 rounded-lg font-medium hover:bg-indigo-700 transition flex justify-center items-center gap-2">
+                        เข้าสู่ระบบ <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- 2. MAIN APP LAYOUT (Authenticated) -->
+    <div id="mainApp" class="hidden min-h-screen bg-gray-50 flex">
+        
+        <!-- Sidebar (Desktop) -->
+        <aside class="hidden md:flex flex-col w-64 bg-white border-r border-slate-200 h-screen fixed top-0 left-0 z-40">
+            <div class="p-6 border-b border-slate-100 flex items-center gap-3">
+                <div class="bg-primary text-white p-2 rounded-lg"><i data-lucide="wallet"></i></div>
+                <h2 class="font-bold text-lg leading-tight">PR-TERM<br><span class="text-sm font-normal text-slate-500">FEES</span></h2>
+            </div>
+            
+            <div class="p-4">
+                <div class="text-xs text-slate-400 font-semibold mb-2 uppercase tracking-wider">โปรไฟล์</div>
+                <div class="flex items-center gap-3 bg-slate-50 p-3 rounded-xl mb-6">
+                    <div class="w-10 h-10 bg-indigo-100 rounded-full flex items-center justify-center text-primary font-bold" id="userAvatar">A</div>
+                    <div>
+                        <p class="font-medium text-sm leading-tight" id="sidebarUserName">ชื่อ นามสกุล</p>
+                        <p class="text-xs text-slate-500" id="sidebarUserRole">Role</p>
+                    </div>
+                </div>
+
+                <div class="text-xs text-slate-400 font-semibold mb-2 uppercase tracking-wider">เมนูหลัก</div>
+                <nav class="space-y-1" id="desktopNavMenu"></nav>
+            </div>
+
+            <div class="mt-auto p-4 border-t border-slate-100">
+                <button onclick="confirmLogoutPrompt()" class="w-full flex items-center gap-3 px-4 py-2 text-slate-600 hover:bg-red-50 hover:text-danger rounded-lg transition">
+                    <i data-lucide="log-out" class="w-5 h-5"></i> ออกจากระบบ
+                </button>
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="flex-1 md:ml-64 pb-20 md:pb-0 min-h-screen relative transition-all">
+            <header class="md:hidden bg-white px-4 py-3 border-b border-slate-200 flex justify-between items-center sticky top-0 z-30">
+                <div class="flex items-center gap-2">
+                    <div class="bg-primary text-white p-1.5 rounded-lg"><i data-lucide="wallet" class="w-5 h-5"></i></div>
+                    <span class="font-bold">PR-TERM FEES</span>
+                </div>
+                <div class="w-8 h-8 bg-indigo-100 rounded-full flex items-center justify-center text-primary font-bold text-sm" id="mobileUserAvatar">A</div>
+            </header>
+
+            <div class="p-4 md:p-8" id="contentArea"></div>
+        </main>
+
+        <!-- Bottom Navigation (Mobile) -->
+        <nav class="md:hidden fixed bottom-0 left-0 w-full bg-white border-t border-slate-200 z-40 pb-safe">
+            <div class="flex justify-around items-center h-16" id="mobileNavMenu"></div>
+        </nav>
+
+        <!-- Mobile Admin Panel Grid -->
+        <div id="mobileAdminPanel" class="md:hidden fixed bottom-16 left-0 w-full bg-white rounded-t-2xl shadow-[0_-10px_40px_rgba(0,0,0,0.1)] transform translate-y-full transition-transform duration-300 z-30 border-t border-slate-100 p-4">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="font-semibold text-slate-700">การจัดการระบบ</h3>
+                <button onclick="toggleMobileAdminPanel()" class="p-1 text-slate-400 hover:text-slate-700"><i data-lucide="x"></i></button>
+            </div>
+            <div class="grid grid-cols-3 gap-4 text-center" id="mobileAdminGrid"></div>
+        </div>
+
+    </div>
+
+    <!-- JS Logic -->
+    <script>
+        // ==========================================
+        // 1. CONFIG & STATE
+        // ==========================================
+        const SUPABASE_URL = 'https://frswsrizweqrfigepprj.supabase.co'; 
+        const SUPABASE_KEY = 'sb_publishable_HxQKMiDaIhgXxlGJITBZ4g_2MrT08ux'; 
+        
+        const dbClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        let appState = {
+            user: null, 
+            school: null, 
+            currentPage: 'dashboard'
+        };
+
+        // ==========================================
+        // 2. UTILITIES
+        // ==========================================
+        const showLoader = () => {
+            const el = document.getElementById('globalLoader');
+            el.classList.remove('hidden');
+            el.classList.add('flex');
+        };
+
+        const hideLoader = () => {
+            const el = document.getElementById('globalLoader');
+            el.classList.remove('flex');
+            el.classList.add('hidden');
+        };
+        
+        const showToast = (message, type = 'success') => {
+            const Toast = Swal.mixin({
+                toast: true,
+                position: "top-end",
+                showConfirmButton: false,
+                timer: 3000,
+                timerProgressBar: true,
+                didOpen: (toast) => {
+                    toast.onmouseenter = Swal.stopTimer;
+                    toast.onmouseleave = Swal.resumeTimer;
+                }
+            });
+            let swalIcon = type === 'danger' ? 'error' : (type === 'warning' ? 'warning' : 'success');
+            Toast.fire({ icon: swalIcon, title: message });
+        };
+
+        const formatCurrency = (num) => new Intl.NumberFormat('th-TH', { style: 'decimal', minimumFractionDigits: 2 }).format(num || 0);
+
+        // ฟังก์ชันแปลงตัวเลขเป็นตัวอักษรภาษาไทย (บาทถ้วน)
+        function ThaiBaht(NumberAmount) {
+            let TxtNumArr = new Array("ศูนย์", "หนึ่ง", "สอง", "สาม", "สี่", "ห้า", "หก", "เจ็ด", "แปด", "เก้า", "สิบ");
+            let TxtDigitArr = new Array("", "สิบ", "ร้อย", "พัน", "หมื่น", "แสน", "ล้าน");
+            let BahtText = "";
+            if (isNaN(NumberAmount)) return "ข้อมูลไม่ถูกต้อง";
+            if ((NumberAmount - 0) === 0) return "ศูนย์บาทถ้วน";
+            
+            NumberAmount = Math.round(NumberAmount * 100) / 100;
+            let NumberStr = NumberAmount.toString();
+            let NumberStrArr = NumberStr.split('.');
+            let integerPart = NumberStrArr[0];
+            let decimalPart = NumberStrArr.length > 1 ? NumberStrArr[1] : "";
+            
+            let intText = "";
+            let intLength = integerPart.length;
+            for (let i = 0; i < intLength; i++) {
+                let n = parseInt(integerPart.charAt(i));
+                if (n !== 0) {
+                    if (i === (intLength - 1) && n === 1 && intLength > 1) {
+                        intText += "เอ็ด";
+                    } else if (i === (intLength - 2) && n === 2) {
+                        intText += "ยี่";
+                    } else if (i === (intLength - 2) && n === 1) {
+                        intText += "";
+                    } else {
+                        intText += TxtNumArr[n];
+                    }
+                    intText += TxtDigitArr[intLength - i - 1];
+                }
+            }
+            BahtText += intText + "บาท";
+            
+            if (decimalPart === "" || decimalPart === "00" || decimalPart === "0") {
+                BahtText += "ถ้วน";
+            } else {
+                if (decimalPart.length === 1) decimalPart += "0";
+                let decText = "";
+                let decLength = decimalPart.length;
+                for (let i = 0; i < decLength; i++) {
+                    let n = parseInt(decimalPart.charAt(i));
+                    if (n !== 0) {
+                        if (i === (decLength - 1) && n === 1 && decLength > 1 && parseInt(decimalPart.charAt(0)) !== 0) {
+                            decText += "เอ็ด";
+                        } else if (i === (decLength - 2) && n === 2) {
+                            decText += "ยี่";
+                        } else if (i === (decLength - 2) && n === 1) {
+                            decText += "";
+                        } else {
+                            decText += TxtNumArr[n];
+                        }
+                        decText += TxtDigitArr[decLength - i - 1];
+                    }
+                }
+                BahtText += decText + "สตางค์";
+            }
+            return `(${BahtText})`;
+        }
+
+        // ==========================================
+        // 3. AUTHENTICATION & INITIALIZATION
+        // ==========================================
+        async function initApp() {
+            lucide.createIcons();
+            const savedUser = localStorage.getItem('prterm_user');
+            if (savedUser) {
+                appState.user = JSON.parse(savedUser);
+                showMainApp();
+            } else {
+                await loadLandingPageStats();
+                document.getElementById('landingPage').classList.remove('hidden');
+                document.getElementById('mainApp').classList.add('hidden');
+            }
+        }
+
+        async function loadLandingPageStats() {
+            try {
+                // 1. ดึงข้อมูลโรงเรียน และจัดการโลโก้
+                const { data: school } = await dbClient.from('school_settings').select('*').limit(1).maybeSingle();
+                if(school) {
+                    appState.school = school;
+                    document.getElementById('lp-schoolName').innerText = school.school_name;
+                    document.getElementById('lp-termInfo').innerText = `ภาคเรียนที่ ${school.term} ปีการศึกษา ${school.academic_year}`;
+                    
+                    // เปลี่ยนจากไอคอนหมวกรับปริญญา เป็นโลโก้โรงเรียน (ถ้ามีการอัปโหลดไว้)
+                    if (school.school_logo) {
+                        const logoWrapper = document.getElementById('lp-logo-wrapper');
+                        const defaultIcon = document.getElementById('lp-default-icon');
+                        const logoImg = document.getElementById('lp-school-logo-img');
+                        
+                        logoImg.src = school.school_logo;
+                        logoImg.classList.remove('hidden');
+                        defaultIcon.classList.add('hidden');
+                        
+                        // เอากรอบพื้นหลังสีน้ำเงินออก ให้เห็นโลโก้เต็มๆ สวยๆ
+                        logoWrapper.classList.remove('bg-primary', 'p-4', 'shadow-md');
+                        logoWrapper.classList.add('bg-transparent');
+                    }
+                }
+                
+               // 2. ดึงข้อมูลสถิตินักเรียนและการจ่ายเงิน เพื่อมาคำนวณแบบหน้า Dashboard
+                const [{ data: students }, { data: fees }, { data: payments }] = await Promise.all([
+                    dbClient.from('students').select('id, room_type').limit(5000),
+                    dbClient.from('fee_items').select('id, room_type').limit(100),
+                    dbClient.from('payments').select('student_id').eq('is_paid', true).limit(10000)
+                ]);
+
+                const totalStu = students ? students.length : 0;
+                let fullyPaid = 0, partialPaid = 0, unpaid = 0;
+
+                const normalFeeCount = fees ? fees.filter(f => f.room_type === 'ห้องเรียนปกติ' || !f.room_type).length : 0;
+                const specialFeeCount = fees ? fees.filter(f => f.room_type === 'ห้องเรียนพิเศษ').length : 0;
+
+                const payCounts = {};
+                if (payments) {
+                    payments.forEach(p => { payCounts[p.student_id] = (payCounts[p.student_id] || 0) + 1; });
+                }
+
+                if (students) {
+                    students.forEach(stu => {
+                        const isSpecial = (stu.room_type && stu.room_type.includes('พิเศษ'));
+                        const targetFees = isSpecial ? specialFeeCount : normalFeeCount;
+                        const paidCount = payCounts[stu.id] || 0;
+                        
+                        if (targetFees === 0 || paidCount === 0) unpaid++;
+                        else if (paidCount < targetFees) partialPaid++;
+                        else fullyPaid++;
+                    });
+                }
+
+                // นำตัวเลขไปแสดงในกล่อง
+                document.getElementById('lp-totalStudent').innerText = totalStu;
+                document.getElementById('lp-paidStudent').innerText = fullyPaid;
+                document.getElementById('lp-partialStudent').innerText = partialPaid;
+                document.getElementById('lp-unpaidStudent').innerText = unpaid;
+
+            } catch (error) { console.error('Error loading stats', error); }
+        }
+
+        async function handleLogin(e) {
+            e.preventDefault();
+            const username = document.getElementById('loginUsername').value.trim();
+            if(!username) return showToast('กรุณากรอกรหัส', 'warning');
+            showLoader();
+            try {
+                let user = null;
+
+                const { data: studentData } = await dbClient.from('students').select('*').eq('username', username).maybeSingle();
+                if (studentData) {
+                    user = studentData;
+                } else {
+                    const { data: teacherData } = await dbClient.from('teachers').select('*').eq('username', username).maybeSingle();
+                    if (teacherData) {
+                        user = teacherData;
+                    }
+                }
+                
+                if (!user) {
+                    showToast('ไม่พบข้อมูลผู้ใช้งาน', 'danger');
+                } else {
+                    appState.user = user;
+                    localStorage.setItem('prterm_user', JSON.stringify(user));
+                    showToast(`ยินดีต้อนรับ ${user.firstname}`);
+                    
+                    const { data: school } = await dbClient.from('school_settings').select('*').limit(1).maybeSingle();
+                    if(school) appState.school = school;
+
+                    showMainApp();
+                }
+            } catch (error) { showToast('เกิดข้อผิดพลาดในการเชื่อมต่อ', 'danger'); }
+            hideLoader();
+        }
+
+        function confirmLogoutPrompt() {
+            Swal.fire({
+                title: 'ออกจากระบบ?',
+                text: "คุณต้องการออกจากระบบใช่หรือไม่?",
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonColor: '#ef4444',
+                cancelButtonColor: '#475569',
+                confirmButtonText: 'ออกจากระบบ',
+                cancelButtonText: 'ยกเลิก'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    localStorage.removeItem('prterm_user');
+                    appState.user = null;
+                    document.getElementById('mainApp').classList.add('hidden');
+                    document.getElementById('landingPage').classList.remove('hidden');
+                    loadLandingPageStats();
+                    document.getElementById('loginForm').reset();
+                    showToast('ออกจากระบบเรียบร้อย');
+                }
+            });
+        }
+
+        // ==========================================
+        // 4. ROUTING & UI RENDER
+        // ==========================================
+        function showMainApp() {
+            document.getElementById('landingPage').classList.add('hidden');
+            document.getElementById('mainApp').classList.remove('hidden');
+            
+            const initial = appState.user.firstname.charAt(0);
+            document.getElementById('userAvatar').innerText = initial;
+            document.getElementById('mobileUserAvatar').innerText = initial;
+            document.getElementById('sidebarUserName').innerText = `${appState.user.prefix || ''}${appState.user.firstname} ${appState.user.lastname}`;
+            
+            const roleLabels = { admin: 'ผู้ดูแลระบบ', director: 'ผู้อำนวยการ', teacher: 'ครูที่ปรึกษา', student: 'นักเรียน' };
+            document.getElementById('sidebarUserRole').innerText = roleLabels[appState.user.role] || '';
+
+            renderMenus();
+            navigate(appState.user.role === 'student' ? 'my-fees' : 'dashboard');
+        }
+
+        const menuConfig = [
+            { id: 'dashboard', icon: 'layout-dashboard', label: 'ภาพรวม', roles: ['admin', 'director'] },
+            { id: 'advisory', icon: 'users', label: 'นักเรียนที่ปรึกษา', roles: ['teacher'] },
+            { id: 'my-fees', icon: 'file-text', label: 'รายการชำระเงิน', roles: ['student'] },
+            { id: 'school-settings', icon: 'settings', label: 'ตั้งค่าโรงเรียน', roles: ['admin'], isAdminOnly: true },
+            { id: 'students-manage', icon: 'graduation-cap', label: 'นักเรียน', roles: ['admin'], isAdminOnly: true },
+            { id: 'teachers-manage', icon: 'user-check', label: 'ครูที่ปรึกษา', roles: ['admin'], isAdminOnly: true },
+            { id: 'fees-manage', icon: 'coins', label: 'จัดการค่าเทอม', roles: ['admin'], isAdminOnly: true },
+        ];
+
+        function renderMenus() {
+            const role = appState.user.role;
+            const desktopNav = document.getElementById('desktopNavMenu');
+            const mobileNav = document.getElementById('mobileNavMenu');
+            const mobileAdminGrid = document.getElementById('mobileAdminGrid');
+            
+            desktopNav.innerHTML = ''; mobileNav.innerHTML = ''; mobileAdminGrid.innerHTML = '';
+
+            const userMenus = menuConfig.filter(m => m.roles.includes(role));
+            const adminExtraMenus = role === 'admin' ? menuConfig.filter(m => m.isAdminOnly) : [];
+            const primaryMenus = userMenus.filter(m => !m.isAdminOnly);
+
+            userMenus.forEach(menu => {
+                desktopNav.innerHTML += `
+                    <button onclick="navigate('${menu.id}')" id="nav-desktop-${menu.id}" class="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-slate-600 hover:bg-indigo-50 hover:text-primary transition font-medium">
+                        <i data-lucide="${menu.icon}" class="w-5 h-5"></i> ${menu.label}
+                    </button>
+                `;
+            });
+
+            primaryMenus.forEach(menu => {
+                mobileNav.innerHTML += `
+                    <button onclick="navigate('${menu.id}')" id="nav-mobile-${menu.id}" class="flex flex-col items-center p-2 text-slate-500 hover:text-primary">
+                        <i data-lucide="${menu.icon}" class="w-6 h-6 mb-1"></i>
+                        <span class="text-[10px]">${menu.label}</span>
+                    </button>
+                `;
+            });
+
+            if (role === 'admin') {
+                mobileNav.innerHTML += `
+                    <button onclick="toggleMobileAdminPanel()" class="flex flex-col items-center p-2 text-slate-500 hover:text-primary">
+                        <div class="bg-primary text-white p-2 rounded-full -mt-5 border-4 border-white shadow-md">
+                            <i data-lucide="grid" class="w-6 h-6"></i>
+                        </div>
+                        <span class="text-[10px] mt-1">จัดการ</span>
+                    </button>
+                `;
+                
+                adminExtraMenus.forEach(menu => {
+                    mobileAdminGrid.innerHTML += `
+                        <button onclick="navigate('${menu.id}'); toggleMobileAdminPanel();" class="flex flex-col items-center bg-slate-50 p-3 rounded-xl hover:bg-indigo-50 text-slate-600 hover:text-primary">
+                            <i data-lucide="${menu.icon}" class="w-6 h-6 mb-2"></i>
+                            <span class="text-xs">${menu.label}</span>
+                        </button>
+                    `;
+                });
+            }
+
+            mobileNav.innerHTML += `
+                <button onclick="confirmLogoutPrompt()" class="flex flex-col items-center p-2 text-slate-500 hover:text-danger">
+                    <i data-lucide="log-out" class="w-6 h-6 mb-1"></i>
+                    <span class="text-[10px]">ออก</span>
+                </button>
+            `;
+
+            lucide.createIcons();
+        }
+
+        function toggleMobileAdminPanel() {
+            const panel = document.getElementById('mobileAdminPanel');
+            if (panel.classList.contains('translate-y-full')) {
+                panel.classList.remove('translate-y-full');
+            } else {
+                panel.classList.add('translate-y-full');
+            }
+        }
+
+        function updateActiveNav(pageId) {
+            document.querySelectorAll('[id^="nav-desktop-"], [id^="nav-mobile-"]').forEach(el => {
+                el.classList.remove('bg-indigo-50', 'text-primary');
+                el.classList.add('text-slate-600');
+            });
+            const deskEl = document.getElementById(`nav-desktop-${pageId}`);
+            const mobEl = document.getElementById(`nav-mobile-${pageId}`);
+            if(deskEl) { deskEl.classList.add('bg-indigo-50', 'text-primary'); deskEl.classList.remove('text-slate-600'); }
+            if(mobEl) { mobEl.classList.add('text-primary'); mobEl.classList.remove('text-slate-500'); }
+        }
+
+        function navigate(pageId) {
+            appState.currentPage = pageId;
+            updateActiveNav(pageId);
+            const content = document.getElementById('contentArea');
+            content.innerHTML = ''; 
+            
+            if (pageId === 'dashboard') renderDashboard(content);
+            if (pageId === 'school-settings') renderSchoolSettings(content);
+            if (pageId === 'students-manage') renderUsersManage(content, 'student');
+            if (pageId === 'teachers-manage') renderUsersManage(content, 'teacher');
+            if (pageId === 'fees-manage') renderFeesManage(content);
+            if (pageId === 'advisory') renderAdvisory(content);
+            if (pageId === 'my-fees') renderStudentFees(contentArea);
+        }
+
+        // ==========================================
+        // 5. PAGE RENDERERS
+        // ==========================================
+        
+        // --- 5.1 Dashboard ---
+        async function renderDashboard(container) {
+            container.innerHTML = `
+                <div class="fade-in">
+                    <h2 class="text-2xl font-bold mb-6">ภาพรวมระบบ (Dashboard)</h2>
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6" id="dashStats">
+                        <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 skeleton h-28"></div>
+                        <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 skeleton h-28"></div>
+                        <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 skeleton h-28"></div>
+                        <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 skeleton h-28"></div>
+                    </div>
+                    <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 w-full h-80">
+                        <canvas id="paymentChart"></canvas>
+                    </div>
+                </div>
+            `;
+            try {
+                const [{ data: students }, { data: fees }, { data: payments }] = await Promise.all([
+                    dbClient.from('students').select('id, room_type').limit(5000),
+                    dbClient.from('fee_items').select('id, room_type').limit(100),
+                    dbClient.from('payments').select('student_id').eq('is_paid', true).limit(10000)
+                ]);
+
+                const total = students ? students.length : 0;
+                let fullyPaid = 0, partialPaid = 0, unpaid = 0;
+
+                const normalFeeCount = fees ? fees.filter(f => f.room_type === 'ห้องเรียนปกติ' || !f.room_type).length : 0;
+                const specialFeeCount = fees ? fees.filter(f => f.room_type === 'ห้องเรียนพิเศษ').length : 0;
+
+                const payCounts = {};
+                if (payments) {
+                    payments.forEach(p => { payCounts[p.student_id] = (payCounts[p.student_id] || 0) + 1; });
+                }
+
+                if (students) {
+                    students.forEach(stu => {
+                        const targetFees = (stu.room_type === 'ห้องเรียนพิเศษ' || stu.room_type === 'พิเศษ') ? specialFeeCount : normalFeeCount;
+                        const paidCount = payCounts[stu.id] || 0;
+                        
+                        if (targetFees === 0 || paidCount === 0) unpaid++;
+                        else if (paidCount < targetFees) partialPaid++;
+                        else fullyPaid++;
+                    });
+                }
+
+                document.getElementById('dashStats').innerHTML = `
+                    <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between">
+                        <div><p class="text-slate-500 text-sm">นักเรียนทั้งหมด</p><h3 class="text-3xl font-bold text-slate-800">${total}</h3></div>
+                        <div class="bg-indigo-100 p-3 rounded-xl text-primary hidden md:block"><i data-lucide="users"></i></div>
+                    </div>
+                    <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between">
+                        <div><p class="text-slate-500 text-sm">ชำระครบแล้ว</p><h3 class="text-3xl font-bold text-success">${fullyPaid}</h3></div>
+                        <div class="bg-emerald-100 p-3 rounded-xl text-success hidden md:block"><i data-lucide="check-circle"></i></div>
+                    </div>
+                    <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between">
+                        <div><p class="text-slate-500 text-sm">จ่ายยังไม่ครบ</p><h3 class="text-3xl font-bold text-amber-500">${partialPaid}</h3></div>
+                        <div class="bg-amber-100 p-3 rounded-xl text-amber-600 hidden md:block"><i data-lucide="clock"></i></div>
+                    </div>
+                    <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between">
+                        <div><p class="text-slate-500 text-sm">ยังไม่จ่าย</p><h3 class="text-3xl font-bold text-danger">${unpaid}</h3></div>
+                        <div class="bg-red-100 p-3 rounded-xl text-danger hidden md:block"><i data-lucide="alert-circle"></i></div>
+                    </div>
+                `;
+                lucide.createIcons();
+
+                const ctx = document.getElementById('paymentChart').getContext('2d');
+                new Chart(ctx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['ชำระครบแล้ว', 'จ่ายยังไม่ครบ', 'ยังไม่จ่าย'],
+                        datasets: [{ 
+                            data: [fullyPaid, partialPaid, unpaid], 
+                            backgroundColor: ['#10b981', '#f59e0b', '#ef4444'], 
+                            borderWidth: 0 
+                        }]
+                    },
+                    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }
+                });
+            } catch(e) { console.error(e); }
+        }
+
+        // --- 5.2 School Settings ---
+        let tempLogo = '';
+        let tempSig = '';
+
+        window.handleImageUpload = (input, type) => {
+            const file = input.files[0];
+            if(file) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    if(type === 'logo') { 
+                        tempLogo = e.target.result; 
+                        document.getElementById('preview_logo').src = tempLogo; 
+                        document.getElementById('preview_logo').classList.remove('hidden'); 
+                    }
+                    if(type === 'sig') { 
+                        tempSig = e.target.result; 
+                        document.getElementById('preview_sig').src = tempSig; 
+                        document.getElementById('preview_sig').classList.remove('hidden'); 
+                    }
+                };
+                reader.readAsDataURL(file);
+            }
+        };
+
+        async function renderSchoolSettings(container) {
+            container.innerHTML = `<div class="fade-in max-w-2xl bg-white p-6 rounded-2xl shadow-sm border border-slate-100" id="schoolFormContainer">กำลังโหลด...</div>`;
+            const { data } = await dbClient.from('school_settings').select('*').limit(1).maybeSingle();
+            const s = data || { school_name: '', director_name: '', term: '', academic_year: '', school_address: '', school_logo: '', finance_signature: '', current_receipt_no: 0 };
+
+            tempLogo = s.school_logo || '';
+            tempSig = s.finance_signature || '';
+
+            document.getElementById('schoolFormContainer').innerHTML = `
+                <h2 class="text-xl font-bold mb-4 flex items-center gap-2"><i data-lucide="settings"></i> ข้อมูลพื้นฐานโรงเรียน</h2>
+                <form onsubmit="saveSchoolSettings(event, '${s.id || ''}')" class="space-y-4">
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="col-span-2">
+                            <label class="block text-sm text-slate-600 mb-1">ชื่อโรงเรียน</label>
+                            <input type="text" id="s_name" value="${s.school_name}" required class="w-full p-2 border rounded-lg focus:ring-2 focus:ring-primary outline-none">
+                        </div>
+                        <div class="col-span-2">
+                            <label class="block text-sm text-slate-600 mb-1">ที่อยู่โรงเรียน (จะแสดงบนใบเสร็จ)</label>
+                            <textarea id="s_address" rows="2" class="w-full p-2 border rounded-lg focus:ring-2 focus:ring-primary outline-none">${s.school_address || ''}</textarea>
+                        </div>
+                        <div class="col-span-2 md:col-span-1">
+                            <label class="block text-sm text-slate-600 mb-1">ชื่อผู้อำนวยการ</label>
+                            <input type="text" id="s_dir" value="${s.director_name}" required class="w-full p-2 border rounded-lg focus:ring-2 focus:ring-primary outline-none">
+                        </div>
+                        <div class="col-span-2 md:col-span-1">
+                            <label class="block text-sm text-slate-600 mb-1">ชื่อเจ้าหน้าที่การเงิน</label>
+                            <input type="text" value="นางสาวชนกพร สุบินดี" readonly class="w-full p-2 border border-slate-200 bg-slate-50 text-slate-500 rounded-lg outline-none">
+                        </div>
+                        <div class="col-span-2 md:col-span-1">
+                            <label class="block text-sm text-slate-600 mb-1">เทอม</label>
+                            <input type="text" id="s_term" value="${s.term}" required class="w-full p-2 border rounded-lg outline-none">
+                        </div>
+                        <div class="col-span-2 md:col-span-1">
+                            <label class="block text-sm text-slate-600 mb-1">ปีการศึกษา</label>
+                            <input type="text" id="s_year" value="${s.academic_year}" required class="w-full p-2 border rounded-lg outline-none">
+                        </div>
+                        
+                        <!-- เพิ่มส่วนตั้งค่าเลขที่ใบเสร็จ -->
+                        <div class="col-span-2 p-4 bg-indigo-50/50 border border-indigo-100 rounded-lg">
+                            <label class="block text-sm text-indigo-800 font-semibold mb-1">ตั้งค่าเลขที่ใบเสร็จล่าสุด</label>
+                            <p class="text-xs text-slate-500 mb-2">เมื่อมีการบันทึกการจ่ายเงิน ระบบจะนำเลขนี้ไปบวก 1 ให้อัตโนมัติ (เช่น ใส่ 0 ใบเสร็จใบแรกจะรันเป็น 0001)</p>
+                            <input type="number" id="s_receipt_no" value="${s.current_receipt_no || 0}" min="0" required class="w-full md:w-1/2 p-2 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-primary">
+                        </div>
+
+                        <div class="col-span-2 md:col-span-1 border border-slate-100 p-4 rounded-lg bg-slate-50">
+                            <label class="block text-sm text-slate-600 mb-2 font-bold">อัปโหลด โลโก้โรงเรียน</label>
+                            <input type="file" accept="image/*" onchange="handleImageUpload(this, 'logo')" class="text-sm">
+                            <img id="preview_logo" src="${tempLogo}" class="h-20 mt-3 object-contain mx-auto ${tempLogo ? '' : 'hidden'}">
+                        </div>
+                        <div class="col-span-2 md:col-span-1 border border-slate-100 p-4 rounded-lg bg-slate-50">
+                            <label class="block text-sm text-slate-600 mb-2 font-bold">อัปโหลด ลายเซ็นการเงิน</label>
+                            <input type="file" accept="image/*" onchange="handleImageUpload(this, 'sig')" class="text-sm">
+                            <img id="preview_sig" src="${tempSig}" class="h-16 mt-3 object-contain mx-auto ${tempSig ? '' : 'hidden'}">
+                        </div>
+                    </div>
+                    <button type="submit" class="mt-4 bg-primary text-white px-6 py-2.5 rounded-lg hover:bg-indigo-700 transition w-full md:w-auto font-medium">บันทึกการตั้งค่า</button>
+                </form>
+            `;
+            lucide.createIcons();
+        }
+
+        window.saveSchoolSettings = async (e, id) => {
+            e.preventDefault(); showLoader();
+            const payload = {
+                school_name: document.getElementById('s_name').value,
+                director_name: document.getElementById('s_dir').value,
+                term: document.getElementById('s_term').value,
+                academic_year: document.getElementById('s_year').value,
+                school_address: document.getElementById('s_address').value,
+                current_receipt_no: parseInt(document.getElementById('s_receipt_no').value) || 0,
+                school_logo: tempLogo,
+                finance_signature: tempSig
+            };
+            if(id) await dbClient.from('school_settings').update(payload).eq('id', id);
+            else await dbClient.from('school_settings').insert([payload]);
+            
+            const { data } = await dbClient.from('school_settings').select('*').limit(1).single();
+            if(data) appState.school = data;
+            
+            hideLoader(); showToast('บันทึกการตั้งค่าสำเร็จ');
+        }
+
+        // ==========================================
+        // 5.3 จัดการบุคลากร (นักเรียน / ครูที่ปรึกษา)
+        // ==========================================
+        let manageState = {
+            currentClass: 'ม.1',
+            currentRoom: 'all',
+            classUsers: [],
+            feesNormal: 0, 
+            feesSpecial: 0,
+            classPayments: [],
+            currentRoleView: 'student' 
+        };
+
+        async function renderUsersManage(container, roleStr) {
+            if (roleStr) manageState.currentRoleView = roleStr;
+            const isStudent = manageState.currentRoleView === 'student';
+            const pageTitle = isStudent ? 'จัดการข้อมูลนักเรียน' : 'จัดการครูที่ปรึกษา';
+            const idLabel = isStudent ? 'รหัสประจำตัวนักเรียน' : 'เลขบัตรประจำตัวประชาชน';
+
+            container.innerHTML = `
+                <div class="fade-in relative h-full">
+                    <h2 class="text-2xl font-bold mb-4">${pageTitle}</h2>
+                    <div class="bg-white p-3 rounded-xl shadow-sm border border-slate-100 mb-2 flex flex-wrap gap-2" id="classTabs"></div>
+                    <div class="mb-6 flex flex-wrap gap-2" id="roomTabs"></div>
+                    <div id="roomContentContainer"><div class="text-center p-8 text-slate-500 text-lg">กำลังโหลดข้อมูล...</div></div>
+
+                    <div id="userModal" class="fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center fade-in px-4 text-base">
+                        <div class="bg-white rounded-2xl w-full max-w-lg shadow-xl overflow-hidden">
+                            <div class="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+                                <h3 class="font-bold text-xl" id="modalUserTitle">${isStudent ? 'เพิ่มข้อมูลนักเรียน' : 'เพิ่มข้อมูลครูที่ปรึกษา'}</h3>
+                                <button type="button" onclick="closeUserModal()" class="text-slate-400 hover:text-slate-800 p-1"><i data-lucide="x"></i></button>
+                            </div>
+                            <form id="userForm" onsubmit="saveUserData(event)" class="p-5 space-y-4">
+                                <input type="hidden" id="mu_id">
+                                <div class="grid grid-cols-2 gap-4">
+                                    <div class="col-span-2 md:col-span-1">
+                                        <label class="block text-slate-600 mb-1">${idLabel} <span class="text-red-500">*</span></label>
+                                        <input type="text" id="mu_username" required class="w-full p-2 border border-slate-300 rounded-lg outline-none focus:border-primary placeholder-slate-300">
+                                    </div>
+                                    <div class="col-span-2 md:col-span-1">
+                                        <label class="block text-slate-600 mb-1">คำนำหน้า</label>
+                                        <select id="mu_prefix" class="w-full p-2 border border-slate-300 rounded-lg outline-none focus:border-primary">
+                                            <option value="ด.ช.">ด.ช.</option>
+                                            <option value="ด.ญ.">ด.ญ.</option>
+                                            <option value="นาย">นาย</option>
+                                            <option value="นางสาว">นางสาว</option>
+                                            <option value="นาง">นาง</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-span-2 md:col-span-1">
+                                        <label class="block text-slate-600 mb-1">ชื่อ <span class="text-red-500">*</span></label>
+                                        <input type="text" id="mu_firstname" required class="w-full p-2 border border-slate-300 rounded-lg outline-none focus:border-primary">
+                                    </div>
+                                    <div class="col-span-2 md:col-span-1">
+                                        <label class="block text-slate-600 mb-1">นามสกุล <span class="text-red-500">*</span></label>
+                                        <input type="text" id="mu_lastname" required class="w-full p-2 border border-slate-300 rounded-lg outline-none focus:border-primary">
+                                    </div>
+                                    <div class="col-span-2 md:col-span-1">
+                                        <label class="block text-slate-600 mb-1">${isStudent ? 'ระดับชั้น' : 'ที่ปรึกษาชั้น'} <span class="text-red-500">*</span></label>
+                                        <input type="text" id="mu_class" required readonly class="w-full p-2 border border-slate-200 bg-slate-50 text-slate-500 rounded-lg outline-none">
+                                    </div>
+                                    <div class="col-span-2 md:col-span-1">
+                                        <label class="block text-slate-600 mb-1">ห้อง (ใส่แค่ตัวเลข) <span class="text-red-500">*</span></label>
+                                        <input type="text" id="mu_room" placeholder="เช่น 1, 2" required class="w-full p-2 border border-slate-300 rounded-lg outline-none focus:border-primary">
+                                    </div>
+                                    
+                                    ${isStudent ? `
+                                    <div class="col-span-2 md:col-span-1">
+                                        <label class="block text-slate-600 mb-1">เลขที่ (ไม่บังคับ)</label>
+                                        <input type="number" id="mu_student_no" placeholder="เช่น 1" class="w-full p-2 border border-slate-300 rounded-lg outline-none focus:border-primary">
+                                    </div>
+                                    <div class="col-span-2 md:col-span-1">
+                                        <label class="block text-slate-600 mb-1">ประเภทห้อง</label>
+                                        <select id="mu_roomtype" class="w-full p-2 border border-slate-300 rounded-lg outline-none focus:border-primary">
+                                            <option value="ห้องเรียนปกติ">ห้องเรียนปกติ</option>
+                                            <option value="ห้องเรียนพิเศษ">ห้องเรียนพิเศษ</option>
+                                        </select>
+                                    </div>
+                                    ` : `<input type="hidden" id="mu_roomtype" value="ห้องเรียนปกติ"><input type="hidden" id="mu_student_no" value="">`}
+                                </div>
+                                <div class="flex justify-end gap-3 mt-6 pt-4 border-t border-slate-100">
+                                    <button type="button" onclick="closeUserModal()" class="px-4 py-2 border border-slate-300 text-slate-600 rounded-lg hover:bg-slate-50 transition">ยกเลิก</button>
+                                    <button type="submit" class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-indigo-700 transition flex items-center gap-2"><i data-lucide="save" class="w-4 h-4"></i> บันทึกข้อมูล</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            `;
+            lucide.createIcons();
+            loadClassTabs();
+        }
+
+        async function loadClassTabs(selectedClass = manageState.currentClass) {
+            manageState.currentClass = selectedClass;
+            manageState.currentRoom = 'all'; 
+            
+            const classes = ['ม.1', 'ม.2', 'ม.3', 'ม.4', 'ม.5', 'ม.6', 'ปวช.1', 'ปวช.2', 'ปวช.3'];
+            let tabsHtml = '';
+            classes.forEach(c => {
+                const isActive = c === selectedClass;
+                tabsHtml += `
+                    <button onclick="loadClassTabs('${c}')" 
+                        class="px-4 py-2 rounded-lg text-lg font-medium transition ${isActive ? 'bg-primary text-white shadow-md' : 'bg-slate-50 text-slate-600 hover:bg-indigo-50 hover:text-primary'}">
+                        ${c}
+                    </button>
+                `;
+            });
+            document.getElementById('classTabs').innerHTML = tabsHtml;
+            await fetchDataForClass(selectedClass);
+        }
+
+        async function fetchDataForClass(classLevel) {
+            const container = document.getElementById('roomContentContainer');
+            container.innerHTML = `<div class="text-center p-8"><div class="loader mx-auto mb-3" style="border-top-color:#4f46e5;"></div><p class="text-primary text-lg">กำลังโหลดข้อมูลชั้น ${classLevel}...</p></div>`;
+            document.getElementById('roomTabs').innerHTML = ''; 
+
+            try {
+                // เรียงลำดับตาม ห้อง -> เลขที่ -> รหัสประจำตัว
+                const { data: students, error: err1 } = await dbClient.from('students')
+                    .select('*').eq('class_level', classLevel).order('room').order('student_no', { ascending: true, nullsFirst: false }).order('username');
+                
+                const { data: teachers, error: err2 } = await dbClient.from('teachers')
+                    .select('*').eq('class_level', classLevel).in('role', ['teacher', 'admin', 'director']).order('room').order('username');
+
+                if (err1 || err2) throw new Error('โหลดข้อมูลล้มเหลว');
+                
+                manageState.classUsers = [...(students || []), ...(teachers || [])];
+
+                const { data: fees } = await dbClient.from('fee_items').select('id, room_type');
+                if (fees) {
+                    manageState.feesNormal = fees.filter(f => f.room_type === 'ห้องเรียนปกติ' || !f.room_type).length;
+                    manageState.feesSpecial = fees.filter(f => f.room_type === 'ห้องเรียนพิเศษ').length;
+                } else {
+                    manageState.feesNormal = 0; manageState.feesSpecial = 0;
+                }
+
+                const studentIds = (students || []).map(u => u.id);
+                if (studentIds.length > 0) {
+                    const { data: payments } = await dbClient.from('payments')
+                        .select('student_id, fee_item_id')
+                        .in('student_id', studentIds)
+                        .eq('is_paid', true);
+                    manageState.classPayments = payments || [];
+                } else {
+                    manageState.classPayments = [];
+                }
+
+                renderRoomFilterAndData();
+            } catch (error) {
+                container.innerHTML = `<div class="text-center p-8 text-danger"><i data-lucide="alert-circle" class="w-8 h-8 mx-auto mb-2"></i>เกิดข้อผิดพลาดในการโหลดข้อมูล</div>`;
+                lucide.createIcons();
+            }
+        }
+
+        window.filterByRoom = (roomValue) => {
+            manageState.currentRoom = roomValue;
+            renderRoomFilterAndData();
+        };
+
+        function renderRoomFilterAndData() {
+            const classLevel = manageState.currentClass;
+            const users = manageState.classUsers;
+            const container = document.getElementById('roomContentContainer');
+            const classPayments = manageState.classPayments || [];
+            
+            const isStudentView = manageState.currentRoleView === 'student';
+            
+            const uniqueRooms = [...new Set(users.map(u => u.room || 'ไม่ระบุห้อง'))].sort();
+            
+            let roomTabsHtml = '';
+            if (uniqueRooms.length > 0) {
+                roomTabsHtml += `<button onclick="filterByRoom('all')" class="px-4 py-1.5 rounded-full text-base font-medium transition ${manageState.currentRoom === 'all' ? 'bg-secondary text-white' : 'bg-slate-200 text-slate-600 hover:bg-slate-300'}">แสดงทุกห้อง</button>`;
+                uniqueRooms.forEach(r => {
+                    const isActive = manageState.currentRoom === r;
+                    let displayRoomTab = r.startsWith('/') ? r.substring(1) : r;
+                    roomTabsHtml += `<button onclick="filterByRoom('${r}')" class="px-4 py-1.5 rounded-full text-base font-medium transition ${isActive ? 'bg-secondary text-white' : 'bg-slate-200 text-slate-600 hover:bg-slate-300'}">ห้อง ${displayRoomTab}</button>`;
+                });
+            }
+            document.getElementById('roomTabs').innerHTML = roomTabsHtml;
+
+            let html = `
+                <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6 p-4 bg-white rounded-xl shadow-sm border border-slate-100 fade-in">
+                    <div>
+                        <h3 class="font-bold text-slate-800 text-xl">ข้อมูล${isStudentView ? 'นักเรียน' : 'ครูที่ปรึกษา'}ชั้น ${classLevel}</h3>
+                        <p class="text-base text-slate-500">จัดการรายชื่อ${isStudentView ? ' และดูสถานะการจ่ายค่าเทอม' : 'ครูที่ปรึกษาของแต่ละห้อง'}</p>
+                    </div>
+                    <div class="flex flex-wrap gap-2 w-full md:w-auto">
+                        <button onclick="downloadSampleCSV()" class="flex-1 md:flex-none bg-white border border-slate-300 text-slate-700 px-3 py-2 rounded-lg flex justify-center items-center gap-2 hover:bg-slate-50 transition" title="โหลดไฟล์ตัวอย่าง">
+                            <i data-lucide="download" class="w-4 h-4"></i> <span class="hidden md:inline">ไฟล์ตัวอย่าง</span>
+                        </button>
+                        <input type="file" id="csvUpload" class="hidden" accept=".csv" onchange="handleCSVUpload(event)">
+                        <button onclick="document.getElementById('csvUpload').click()" class="flex-1 md:flex-none bg-slate-100 text-slate-700 px-3 py-2 rounded-lg flex justify-center items-center gap-2 hover:bg-slate-200 transition">
+                            <i data-lucide="upload" class="w-4 h-4"></i> นำเข้าข้อมูล
+                        </button>
+                        <button onclick="openUserModal('${classLevel}')" class="flex-1 md:flex-none bg-primary text-white px-3 py-2 rounded-lg flex justify-center items-center gap-2 hover:bg-indigo-700 transition">
+                            <i data-lucide="plus" class="w-4 h-4"></i> เพิ่มข้อมูล
+                        </button>
+                    </div>
+                </div>
+            `;
+
+            const rooms = {};
+            users.forEach(u => {
+                const r = u.room || 'ไม่ระบุห้อง';
+                if (manageState.currentRoom !== 'all' && manageState.currentRoom !== r) return;
+                if (!rooms[r]) rooms[r] = { teachers: [], students: [], all: [] };
+                if (u.role === 'student') rooms[r].students.push(u);
+                else rooms[r].teachers.push(u);
+                rooms[r].all.push(u);
+            });
+
+            if (Object.keys(rooms).length === 0) {
+                html += `<div class="text-center p-12 bg-white rounded-2xl border border-dashed border-slate-300 slide-up"><p class="text-slate-500 text-lg font-medium">ยังไม่มีข้อมูลในระบบ</p></div>`;
+                container.innerHTML = html;
+                lucide.createIcons();
+                return;
+            }
+
+            Object.keys(rooms).sort().forEach(roomName => {
+                const roomData = rooms[roomName];
+                const targetUsers = isStudentView ? roomData.students : roomData.teachers;
+                
+                let teachersHtml = roomData.teachers.map(t => 
+                    `<div class="flex items-center gap-1.5 bg-indigo-50 text-primary px-3 py-1.5 rounded-lg font-medium border border-indigo-100"><i data-lucide="user-check" class="w-4 h-4"></i> ครู${t.firstname} ${t.lastname}</div>`
+                ).join('') || `<span class="text-slate-400 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-100">ยังไม่ระบุครูที่ปรึกษา</span>`;
+
+                html += `
+                    <div class="bg-white rounded-2xl shadow-[0_2px_10px_-3px_rgba(6,81,237,0.1)] border border-slate-100 mb-6 overflow-hidden slide-up">
+                        <div class="p-4 border-b border-slate-100 bg-slate-50/50 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                            <div>
+                                <h3 class="text-xl font-bold text-slate-800 flex items-center gap-2"><div class="w-2 h-6 bg-primary rounded-full"></div> ชั้น ${classLevel}${roomName}</h3>
+                                <div class="flex items-center gap-2 mt-3 flex-wrap"><span class="font-medium text-slate-500">ครูที่ปรึกษา:</span>${teachersHtml}</div>
+                            </div>
+                            <div class="bg-white px-4 py-1.5 rounded-full border border-slate-200 text-slate-600 shadow-sm flex items-center gap-2"><i data-lucide="users" class="w-4 h-4 text-slate-400"></i> รายการ ${targetUsers.length} คน</div>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left border-collapse min-w-[${isStudentView ? '900px' : '600px'}]">
+                                <thead>
+                                    <tr class="bg-white text-slate-500 text-lg border-b border-slate-100">
+                                        <th class="p-3 w-32 font-medium">${isStudentView ? 'รหัสประจำตัว' : 'เลขบัตร ปชช.'}</th>
+                                        <th class="p-3 font-medium">ชื่อ-นามสกุล</th>
+                                        <th class="p-3 font-medium text-center">ชั้น/ห้อง</th>
+                                        ${isStudentView ? `<th class="p-3 font-medium text-center">ประเภทห้อง</th><th class="p-3 font-medium text-center">การจ่ายเงิน</th>` : ''}
+                                        <th class="p-3 text-right w-28 font-medium">จัดการ</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                `;
+
+                if (targetUsers.length === 0) {
+                    html += `<tr><td colspan="${isStudentView ? '6' : '4'}" class="p-6 text-center text-slate-400">ไม่มีข้อมูลในห้องนี้</td></tr>`;
+                } else {
+                    targetUsers.forEach(user => {
+                        let additionalColumns = '';
+                        // แสดงเลขที่ นำหน้าชื่อถ้ามี
+                        const studentNoText = (isStudentView && user.student_no) ? `<span class="text-slate-400 mr-2">เลขที่ ${user.student_no}</span>` : '';
+                        
+                        if (isStudentView) {
+                            const isSpecial = (user.room_type && user.room_type.includes('พิเศษ'));
+                            const targetFeeCount = isSpecial ? manageState.feesSpecial : manageState.feesNormal;
+                            
+                            let paymentBadge = '<span class="text-slate-400">-</span>';
+                            if (targetFeeCount === 0) {
+                                paymentBadge = '<span class="text-slate-400 text-sm">ยังไม่ตั้งค่าเทอม</span>';
+                            } else {
+                                const paidCount = classPayments.filter(p => p.student_id === user.id).length;
+                                if (paidCount === 0) paymentBadge = '<span class="px-2.5 py-1 bg-red-100 text-red-700 rounded-md text-sm font-medium">ยังไม่จ่าย</span>';
+                                else if (paidCount < targetFeeCount) paymentBadge = '<span class="px-2.5 py-1 bg-amber-100 text-amber-700 rounded-md text-sm font-medium">จ่ายยังไม่ครบ</span>';
+                                else paymentBadge = '<span class="px-2.5 py-1 bg-emerald-100 text-emerald-700 rounded-md text-sm font-medium">จ่ายครบแล้ว</span>';
+                            }
+
+                            let displayRoomType = isSpecial ? 'ห้องเรียนพิเศษ' : 'ห้องเรียนปกติ';
+
+                            additionalColumns = `
+                                <td class="p-3 text-center"><span class="px-2.5 py-1 ${isSpecial ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-600'} rounded-md text-sm font-medium">${displayRoomType}</span></td>
+                                <td class="p-3 text-center">${paymentBadge}</td>
+                            `;
+                        }
+
+                        html += `
+                            <tr class="border-b border-slate-50 hover:bg-slate-50 transition group">
+                                <td class="p-3 text-slate-600">${user.username}</td>
+                                <td class="p-3 font-medium text-slate-800">${isStudentView ? studentNoText : ''}${user.prefix||''}${user.firstname} ${user.lastname}</td>
+                                <td class="p-3 text-center">${user.class_level}${user.room}</td>
+                                ${additionalColumns}
+                                <td class="p-3 text-right opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+                                    <button onclick="openUserModal('${classLevel}', '${user.id}', '${user.role}')" class="text-amber-500 hover:bg-amber-50 p-2 rounded-lg transition mr-1"><i data-lucide="edit" class="w-4 h-4"></i></button>
+                                    <button onclick="deleteUser('${user.id}', '${user.role}')" class="text-danger hover:bg-red-50 p-2 rounded-lg transition"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                                </td>
+                            </tr>
+                        `;
+                    });
+                }
+                html += `</tbody></table></div></div>`;
+            });
+
+            container.innerHTML = html;
+            lucide.createIcons();
+        }
+
+        window.openUserModal = async (classLevel, userId = null, role = null) => {
+            const modal = document.getElementById('userModal');
+            const title = document.getElementById('modalUserTitle');
+            const form = document.getElementById('userForm');
+            const isStudent = manageState.currentRoleView === 'student';
+            
+            form.reset();
+            document.getElementById('mu_id').value = '';
+            document.getElementById('mu_class').value = classLevel;
+            if (isStudent && document.getElementById('mu_student_no')) {
+                document.getElementById('mu_student_no').value = '';
+            }
+
+            if (userId) {
+                title.innerText = isStudent ? 'แก้ไขข้อมูลนักเรียน' : 'แก้ไขข้อมูลครูที่ปรึกษา';
+                showLoader();
+                const tableName = (role === 'student') ? 'students' : 'teachers';
+                const { data, error } = await dbClient.from(tableName).select('*').eq('id', userId).single();
+                hideLoader();
+                
+                if (data && !error) {
+                    document.getElementById('mu_id').value = data.id;
+                    document.getElementById('mu_username').value = data.username;
+                    document.getElementById('mu_prefix').value = data.prefix || '';
+                    document.getElementById('mu_firstname').value = data.firstname || '';
+                    document.getElementById('mu_lastname').value = data.lastname || '';
+                    
+                    let editRoom = data.room || '';
+                    if (editRoom.startsWith('/')) editRoom = editRoom.substring(1);
+                    document.getElementById('mu_room').value = editRoom;
+                    
+                    if (isStudent) {
+                        let rType = data.room_type || 'ห้องเรียนปกติ';
+                        if (rType.includes('พิเศษ')) rType = 'ห้องเรียนพิเศษ';
+                        else rType = 'ห้องเรียนปกติ';
+                        document.getElementById('mu_roomtype').value = rType;
+                        document.getElementById('mu_student_no').value = data.student_no || '';
+                    }
+                }
+            } else {
+                title.innerText = isStudent ? `เพิ่มข้อมูลนักเรียน (ชั้น ${classLevel})` : `เพิ่มข้อมูลครูที่ปรึกษา (ชั้น ${classLevel})`;
+            }
+            modal.classList.remove('hidden');
+        };
+
+        window.closeUserModal = () => document.getElementById('userModal').classList.add('hidden');
+
+        window.saveUserData = async (e) => {
+            e.preventDefault();
+            showLoader();
+            
+            let inputRoom = document.getElementById('mu_room').value.trim();
+            if (inputRoom && !inputRoom.startsWith('/')) {
+                inputRoom = '/' + inputRoom;
+            }
+
+            const id = document.getElementById('mu_id').value;
+            const isStudentView = manageState.currentRoleView === 'student';
+            const tableName = isStudentView ? 'students' : 'teachers';
+
+            const payload = {
+                username: document.getElementById('mu_username').value.trim(),
+                prefix: document.getElementById('mu_prefix').value,
+                firstname: document.getElementById('mu_firstname').value.trim(),
+                lastname: document.getElementById('mu_lastname').value.trim(),
+                class_level: document.getElementById('mu_class').value,
+                room: inputRoom
+            };
+
+            if (isStudentView) {
+                payload.role = 'student';
+                payload.room_type = document.getElementById('mu_roomtype').value;
+                const stuNo = document.getElementById('mu_student_no').value;
+                payload.student_no = stuNo ? parseInt(stuNo) : null;
+            } else {
+                payload.role = 'teacher';
+            }
+
+            try {
+                if (id) {
+                    await dbClient.from(tableName).update(payload).eq('id', id);
+                    showToast('อัปเดตข้อมูลสำเร็จ');
+                } else {
+                    await dbClient.from(tableName).insert([payload]);
+                    showToast('เพิ่มข้อมูลสำเร็จ');
+                }
+                closeUserModal();
+                fetchDataForClass(manageState.currentClass); 
+            } catch(error) {
+                showToast('เกิดข้อผิดพลาด (รหัสอาจซ้ำกับในระบบ)', 'danger');
+            }
+            hideLoader();
+        };
+
+        window.deleteUser = async (id, role) => {
+            Swal.fire({
+                title: 'ยืนยันการลบข้อมูล?',
+                text: "ประวัติการจ่ายเงินของบุคลากรรายนี้จะหายไปด้วย!",
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#ef4444',
+                cancelButtonColor: '#475569',
+                confirmButtonText: 'ใช่, ลบทิ้งเลย',
+                cancelButtonText: 'ยกเลิก'
+            }).then(async (result) => {
+                if (result.isConfirmed) {
+                    showLoader();
+                    try {
+                        const tableName = (role === 'student') ? 'students' : 'teachers';
+                        await dbClient.from(tableName).delete().eq('id', id);
+                        showToast('ลบข้อมูลเรียบร้อยแล้ว', 'success');
+                        fetchDataForClass(manageState.currentClass);
+                    } catch(error) { showToast('ลบข้อมูลไม่สำเร็จ', 'danger'); }
+                    hideLoader();
+                }
+            });
+        };
+
+        window.downloadSampleCSV = () => {
+            const isStudent = manageState.currentRoleView === 'student';
+            let headerRow, dataRow;
+            if (isStudent) {
+                headerRow = "username,prefix,firstname,lastname,class_level,room,room_type,student_no\n";
+                dataRow = "67001,ด.ช.,สมชาย,เรียนดี,ม.1,1,ห้องเรียนปกติ,1\n";
+            } else {
+                headerRow = "username,prefix,firstname,lastname,class_level,room\n";
+                dataRow = "1111111111111,นาย,สมศักดิ์,สอนดี,ม.1,1\n";
+            }
+            const csvContent = "\uFEFF" + headerRow + dataRow; 
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            link.download = `ไฟล์ตัวอย่าง_${isStudent ? 'นักเรียน' : 'ครูที่ปรึกษา'}_${manageState.currentClass}.csv`;
+            link.style.display = 'none';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        };
+
+        window.handleCSVUpload = (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            showLoader();
+            const reader = new FileReader();
+            
+            reader.onload = async (event) => {
+                try {
+                    let csvText = event.target.result;
+                    if (csvText.charCodeAt(0) === 0xFEFF) csvText = csvText.slice(1);
+                    const lines = csvText.split(/\r?\n/).filter(line => line.trim() !== '');
+                    if (lines.length < 2) { hideLoader(); showToast('ไฟล์ไม่มีข้อมูล', 'warning'); e.target.value = ''; return; }
+
+                    const isStudent = manageState.currentRoleView === 'student';
+                    const tableName = isStudent ? 'students' : 'teachers';
+                    const rowsToInsert = [];
+                    
+                    for (let i = 1; i < lines.length; i++) {
+                        const values = lines[i].split(',').map(v => v.trim());
+                        if (values.length >= 4 && values[0] && values[2]) {
+                            let csvRoom = values[5] ? values[5].trim() : '';
+                            if (csvRoom && !csvRoom.startsWith('/')) csvRoom = '/' + csvRoom;
+                            const payload = {
+                                username: values[0],
+                                prefix: values[1] || '',
+                                firstname: values[2],
+                                lastname: values[3],
+                                class_level: values[4] || manageState.currentClass,
+                                room: csvRoom
+                            };
+                            if (isStudent) {
+                                payload.role = 'student';
+                                let csvRoomType = values[6] ? values[6].trim() : 'ห้องเรียนปกติ';
+                                if (csvRoomType.includes('พิเศษ')) csvRoomType = 'ห้องเรียนพิเศษ';
+                                else csvRoomType = 'ห้องเรียนปกติ';
+                                payload.room_type = csvRoomType;
+                                
+                                // รับค่าคอลัมน์ที่ 8 (index 7) เป็นเลขที่
+                                payload.student_no = values[7] ? parseInt(values[7]) : null;
+                            } else {
+                                payload.role = 'teacher';
+                            }
+                            rowsToInsert.push(payload);
+                        }
+                    }
+
+                    if (rowsToInsert.length === 0) { hideLoader(); showToast('ข้อมูลไม่สมบูรณ์', 'warning'); return; }
+                    await dbClient.from(tableName).upsert(rowsToInsert, { onConflict: 'username' });
+                    showToast(`นำเข้าสำเร็จ ${rowsToInsert.length} รายการ`, 'success');
+                    fetchDataForClass(manageState.currentClass);
+                } catch (err) { showToast('เกิดข้อผิดพลาดในการนำเข้า', 'danger'); }
+                hideLoader();
+                e.target.value = ''; 
+            };
+            reader.readAsText(file);
+        };
+
+        // ==========================================
+        // 5.4 Manage Fees (Admin)
+        // ==========================================
+        async function renderFeesManage(container) {
+            container.innerHTML = `
+                <div class="fade-in relative h-full">
+                    <h2 class="text-2xl font-bold mb-6">จัดการรายการค่าเทอม</h2>
+                    <div class="grid grid-cols-1 xl:grid-cols-2 gap-6" id="feesContainer">
+                        <div class="text-center p-8 text-slate-500 col-span-full"><div class="loader mx-auto mb-3"></div>กำลังโหลดข้อมูล...</div>
+                    </div>
+
+                    <div id="feeModal" class="fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center fade-in px-4 text-base">
+                        <div class="bg-white rounded-2xl w-full max-w-sm shadow-xl overflow-hidden">
+                            <div class="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+                                <h3 class="font-bold text-xl" id="modalFeeTitle">เพิ่มรายการ</h3>
+                                <button type="button" onclick="closeFeeModal()" class="text-slate-400 hover:text-slate-800 p-1"><i data-lucide="x"></i></button>
+                            </div>
+                            <form id="feeForm" onsubmit="saveFeeData(event)" class="p-5 space-y-4">
+                                <input type="hidden" id="mf_id">
+                                <input type="hidden" id="mf_type">
+                                <div><label class="block text-slate-600 mb-1">ชื่อรายการ <span class="text-red-500">*</span></label><input type="text" id="mf_title" required class="w-full p-2 border border-slate-300 rounded-lg outline-none focus:border-primary"></div>
+                                <div><label class="block text-slate-600 mb-1">จำนวนเงิน (บาท) <span class="text-red-500">*</span></label><input type="number" id="mf_amount" min="0" step="0.01" required class="w-full p-2 border border-slate-300 rounded-lg outline-none focus:border-primary"></div>
+                                <div class="flex justify-end gap-3 mt-6 pt-4 border-t border-slate-100">
+                                    <button type="button" onclick="closeFeeModal()" class="px-4 py-2 border border-slate-300 text-slate-600 rounded-lg hover:bg-slate-50 transition">ยกเลิก</button>
+                                    <button type="submit" class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-indigo-700 transition flex items-center gap-2"><i data-lucide="save" class="w-4 h-4"></i> บันทึก</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            `;
+            lucide.createIcons();
+            loadFeesData();
+        }
+
+        async function loadFeesData() {
+            showLoader();
+            try {
+                const { data, error } = await dbClient.from('fee_items').select('*').order('created_at', { ascending: true });
+                if (error) throw error;
+
+                const normalFees = data.filter(f => f.room_type === 'ห้องเรียนปกติ' || !f.room_type);
+                const specialFees = data.filter(f => f.room_type === 'ห้องเรียนพิเศษ');
+
+                const renderTable = (fees, typeName, typeValue, colorClass, btnColorClass) => {
+                    let total = 0;
+                    let rows = fees.map(f => {
+                        total += Number(f.amount);
+                        return `<tr class="border-b border-slate-50 hover:bg-slate-50 transition group"><td class="p-3 text-slate-800">${f.title}</td><td class="p-3 text-right font-medium text-slate-600">${formatCurrency(f.amount)}</td><td class="p-3 text-right opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap w-24"><button onclick="openFeeModal('${typeValue}', '${f.id}', '${f.title}', ${f.amount})" class="text-amber-500 hover:bg-amber-50 p-2 rounded-lg transition mr-1"><i data-lucide="edit" class="w-4 h-4"></i></button><button onclick="deleteFeeItem('${f.id}')" class="text-danger hover:bg-red-50 p-2 rounded-lg transition"><i data-lucide="trash-2" class="w-4 h-4"></i></button></td></tr>`;
+                    }).join('');
+
+                    if(fees.length === 0) rows = `<tr><td colspan="3" class="p-6 text-center text-slate-400">ยังไม่มีรายการ</td></tr>`;
+
+                    return `
+                        <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden flex flex-col h-full slide-up">
+                            <div class="p-4 border-b border-slate-100 ${colorClass} flex justify-between items-center">
+                                <h3 class="font-bold text-lg text-slate-800">ค่าเทอม - ${typeName}</h3>
+                                <button onclick="openFeeModal('${typeValue}')" class="${btnColorClass} text-white px-4 py-2 rounded-lg text-sm flex items-center gap-1 transition shadow-sm hover:shadow"><i data-lucide="plus" class="w-4 h-4"></i> เพิ่มรายการ</button>
+                            </div>
+                            <div class="flex-1 overflow-x-auto"><table class="w-full text-left border-collapse min-w-[300px]"><thead><tr class="bg-slate-50 text-slate-500 text-sm border-b border-slate-100"><th class="p-3 font-medium">รายการ</th><th class="p-3 text-right font-medium">จำนวนเงิน</th><th class="p-3 text-right font-medium">จัดการ</th></tr></thead><tbody>${rows}</tbody></table></div>
+                            <div class="p-4 border-t border-slate-100 bg-slate-50 flex justify-between items-center font-bold text-lg"><span class="text-slate-600">ยอดรวมทั้งหมด</span><span class="text-primary text-xl">${formatCurrency(total)}</span></div>
+                        </div>
+                    `;
+                };
+
+                document.getElementById('feesContainer').innerHTML = renderTable(normalFees, 'ห้องเรียนปกติ', 'ห้องเรียนปกติ', 'bg-indigo-50/50', 'bg-indigo-600 hover:bg-indigo-700') + renderTable(specialFees, 'ห้องเรียนพิเศษ', 'ห้องเรียนพิเศษ', 'bg-amber-50/50', 'bg-amber-600 hover:bg-amber-700');
+                lucide.createIcons();
+            } catch(e) { showToast('โหลดข้อมูลค่าเทอมไม่สำเร็จ', 'danger'); }
+            hideLoader();
+        }
+
+        window.openFeeModal = (type, id = '', title = '', amount = '') => {
+            document.getElementById('mf_id').value = id;
+            document.getElementById('mf_type').value = type;
+            document.getElementById('mf_title').value = title;
+            document.getElementById('mf_amount').value = amount;
+            document.getElementById('modalFeeTitle').innerText = id ? 'แก้ไขรายการ' : `เพิ่มรายการ (${type})`;
+            document.getElementById('feeModal').classList.remove('hidden');
+        }
+        window.closeFeeModal = () => document.getElementById('feeModal').classList.add('hidden');
+
+        window.saveFeeData = async (e) => {
+            e.preventDefault(); showLoader();
+            const id = document.getElementById('mf_id').value;
+            const payload = { room_type: document.getElementById('mf_type').value, title: document.getElementById('mf_title').value.trim(), amount: document.getElementById('mf_amount').value };
+            try {
+                if (id) await dbClient.from('fee_items').update(payload).eq('id', id);
+                else await dbClient.from('fee_items').insert([payload]);
+                showToast('บันทึกรายการสำเร็จ', 'success');
+                closeFeeModal();
+                loadFeesData();
+            } catch(e) { showToast('บันทึกข้อมูลไม่สำเร็จ', 'danger'); }
+            hideLoader();
+        }
+
+        window.deleteFeeItem = async (id) => {
+            Swal.fire({
+                title: 'ยืนยันการลบรายการ?', text: "ประวัติการจ่ายเงินของรายการนี้ทั้งหมดจะถูกลบไปด้วย!", icon: 'warning', showCancelButton: true, confirmButtonColor: '#ef4444', cancelButtonColor: '#475569', confirmButtonText: 'ลบทิ้ง', cancelButtonText: 'ยกเลิก'
+            }).then(async (result) => {
+                if (result.isConfirmed) {
+                    showLoader();
+                    try { await dbClient.from('fee_items').delete().eq('id', id); showToast('ลบรายการสำเร็จ'); loadFeesData(); } 
+                    catch(e) { showToast('เกิดข้อผิดพลาด', 'danger'); }
+                    hideLoader();
+                }
+            });
+        }
+
+        // ==========================================
+        // 5.5 Advisory (Teacher) - ระบบจ่ายเงินและใบเสร็จ
+        // ==========================================
+        let modalState = {
+            studentId: null,
+            studentName: null,
+            studentUsername: null,
+            classLevel: null,
+            room: null,
+            roomType: null,
+            fees: [],
+            payments: []
+        };
+
+        let advisorState = {
+            classLevel: null,
+            room: null,
+            students: [],
+            fees: [],
+            payments: [],
+            total: 0,
+            fullyPaid: 0,
+            partialPaid: 0,
+            unpaid: 0,
+            teacherNames: ''
+        };
+
+        async function renderAdvisory(container) {
+            const teacherClass = appState.user.class_level;
+            const teacherRoom = appState.user.room;
+            
+            container.innerHTML = `
+                <div class="fade-in">
+                    <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+                        <div>
+                            <h2 class="text-2xl font-bold mb-2">นักเรียนชั้น ${teacherClass}${teacherRoom}</h2>
+                            <p class="text-slate-500 text-base">ภาพรวมการชำระเงิน และรายชื่อนักเรียนในที่ปรึกษา</p>
+                        </div>
+                        <button onclick="printDailyReport()" class="bg-indigo-600 text-white px-5 py-2.5 rounded-xl flex justify-center items-center gap-2 hover:bg-indigo-700 transition shadow-sm font-medium w-full md:w-auto">
+                            <i data-lucide="printer" class="w-5 h-5"></i> พิมพ์สรุปยอดประจำวัน
+                        </button>
+                    </div>
+
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6" id="advisorDashStats">
+                        <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 skeleton h-28"></div>
+                        <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 skeleton h-28"></div>
+                        <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 skeleton h-28"></div>
+                        <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 skeleton h-28"></div>
+                    </div>
+                    
+                    <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 w-full h-64 mb-8 hidden" id="advisorChartContainer">
+                        <canvas id="advisorPaymentChart"></canvas>
+                    </div>
+
+                    <h3 class="text-xl font-bold mb-4 border-t border-slate-100 pt-6">รายชื่อนักเรียนในห้อง</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4" id="studentListGrid">
+                        <div class="col-span-full text-center p-8"><div class="loader mx-auto mb-3"></div></div>
+                    </div>
+                </div>
+            `;
+
+            try {
+                // จัดเรียงตามเลขที่ (student_no) จากน้อยไปมาก
+                const { data: students, error } = await dbClient.from('students')
+                    .select('*')
+                    .eq('class_level', teacherClass)
+                    .eq('room', teacherRoom)
+                    .order('student_no', { ascending: true, nullsFirst: false })
+                    .order('username');
+                if (error) throw error;
+
+                const { data: advTeachers } = await dbClient.from('teachers').select('*').eq('class_level', teacherClass).eq('room', teacherRoom);
+                const teacherNames = (advTeachers || []).map(t => `${t.prefix||''}${t.firstname} ${t.lastname}`).join(' และ ') || '.............................................';
+
+                const { data: fees } = await dbClient.from('fee_items').select('id, room_type, title, amount');
+                const normalFeeCount = fees ? fees.filter(f => f.room_type === 'ห้องเรียนปกติ' || !f.room_type).length : 0;
+                const specialFeeCount = fees ? fees.filter(f => f.room_type === 'ห้องเรียนพิเศษ').length : 0;
+
+                let payments = [];
+                const studentIds = (students || []).map(u => u.id);
+                if (studentIds.length > 0) {
+                    const { data: pays } = await dbClient.from('payments').select('student_id, fee_item_id, paid_at').in('student_id', studentIds).eq('is_paid', true);
+                    payments = pays || [];
+                }
+
+                const total = students ? students.length : 0;
+                let fullyPaid = 0, partialPaid = 0, unpaid = 0;
+                const payCounts = {};
+                payments.forEach(p => { payCounts[p.student_id] = (payCounts[p.student_id] || 0) + 1; });
+
+                if (students) {
+                    students.forEach(stu => {
+                        const isSpecial = (stu.room_type && stu.room_type.includes('พิเศษ'));
+                        const targetFees = isSpecial ? specialFeeCount : normalFeeCount;
+                        const paidCount = payCounts[stu.id] || 0;
+                        if (targetFees === 0 || paidCount === 0) unpaid++;
+                        else if (paidCount < targetFees) partialPaid++;
+                        else fullyPaid++;
+                    });
+                }
+
+                let cleanRoom = teacherRoom;
+                if(cleanRoom && cleanRoom.startsWith('/')) cleanRoom = cleanRoom.substring(1);
+
+                advisorState = {
+                    classLevel: teacherClass,
+                    room: cleanRoom,
+                    students: students || [],
+                    fees: fees || [],
+                    payments: payments,
+                    total, fullyPaid, partialPaid, unpaid, teacherNames
+                };
+
+                document.getElementById('advisorDashStats').innerHTML = `
+                    <div class="bg-white p-4 md:p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between"><div><p class="text-slate-500 text-xs md:text-sm">นักเรียนทั้งหมด</p><h3 class="text-2xl md:text-3xl font-bold text-slate-800">${total}</h3></div><div class="bg-indigo-100 p-3 rounded-xl text-primary hidden md:block"><i data-lucide="users"></i></div></div>
+                    <div class="bg-white p-4 md:p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between"><div><p class="text-slate-500 text-xs md:text-sm">ชำระครบ</p><h3 class="text-2xl md:text-3xl font-bold text-success">${fullyPaid}</h3></div><div class="bg-emerald-100 p-3 rounded-xl text-success hidden md:block"><i data-lucide="check-circle"></i></div></div>
+                    <div class="bg-white p-4 md:p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between"><div><p class="text-slate-500 text-xs md:text-sm">ยังไม่ครบ</p><h3 class="text-2xl md:text-3xl font-bold text-amber-500">${partialPaid}</h3></div><div class="bg-amber-100 p-3 rounded-xl text-amber-600 hidden md:block"><i data-lucide="clock"></i></div></div>
+                    <div class="bg-white p-4 md:p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between"><div><p class="text-slate-500 text-xs md:text-sm">ยังไม่จ่าย</p><h3 class="text-2xl md:text-3xl font-bold text-danger">${unpaid}</h3></div><div class="bg-red-100 p-3 rounded-xl text-danger hidden md:block"><i data-lucide="alert-circle"></i></div></div>
+                `;
+                
+                if (total > 0) {
+                    document.getElementById('advisorChartContainer').classList.remove('hidden');
+                    new Chart(document.getElementById('advisorPaymentChart').getContext('2d'), {
+                        type: 'doughnut', data: { labels: ['ชำระครบแล้ว', 'จ่ายยังไม่ครบ', 'ยังไม่จ่าย'], datasets: [{ data: [fullyPaid, partialPaid, unpaid], backgroundColor: ['#10b981', '#f59e0b', '#ef4444'], borderWidth: 0 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }
+                    });
+                }
+
+                const grid = document.getElementById('studentListGrid');
+                grid.innerHTML = '';
+                
+                if(!students || students.length===0) {
+                    grid.innerHTML = `<p class="col-span-full text-slate-500 text-center p-8 bg-white rounded-2xl border border-slate-100">ไม่มีข้อมูลนักเรียนในที่ปรึกษา</p>`;
+                } else {
+                    students.forEach(stu => {
+                        const isSpecial = (stu.room_type && stu.room_type.includes('พิเศษ'));
+                        const passRoomType = isSpecial ? 'ห้องเรียนพิเศษ' : 'ห้องเรียนปกติ';
+                        const targetFees = isSpecial ? specialFeeCount : normalFeeCount;
+                        const paidCount = payCounts[stu.id] || 0;
+                        
+                        let statusBadge = '';
+                        if (targetFees === 0) statusBadge = '<span class="text-xs text-slate-400">ยังไม่ตั้งค่า</span>';
+                        else if (paidCount === 0) statusBadge = '<span class="px-2.5 py-1 bg-red-100 text-red-700 rounded-md text-xs font-medium">ยังไม่จ่าย</span>';
+                        else if (paidCount < targetFees) statusBadge = '<span class="px-2.5 py-1 bg-amber-100 text-amber-700 rounded-md text-xs font-medium">ยังไม่ครบ</span>';
+                        else statusBadge = '<span class="px-2.5 py-1 bg-emerald-100 text-emerald-700 rounded-md text-xs font-medium">ครบแล้ว</span>';
+
+                        const stuNoBadge = stu.student_no ? `<span class="bg-indigo-100 text-primary px-2 py-0.5 rounded text-xs mr-2 border border-indigo-200">เลขที่ ${stu.student_no}</span>` : '';
+
+                        grid.innerHTML += `
+                            <div onclick="window.openStudentFeeModal('${stu.id}', '${stu.username}', '${stu.prefix||''}${stu.firstname} ${stu.lastname}', '${stu.class_level}', '${stu.room}', '${passRoomType}')" class="bg-white p-4 rounded-xl shadow-sm border border-slate-100 hover:border-primary hover:shadow-md cursor-pointer transition flex items-center justify-between gap-2">
+                                <div class="flex items-center gap-3 w-full">
+                                    <div class="w-10 h-10 bg-indigo-50 rounded-full flex items-center justify-center text-primary flex-shrink-0"><i data-lucide="user" class="w-5 h-5"></i></div>
+                                    <div class="min-w-0">
+                                        <p class="font-semibold text-slate-800 text-sm md:text-base truncate">${stuNoBadge}${stu.prefix||''}${stu.firstname} ${stu.lastname}</p>
+                                        <p class="text-xs text-slate-500">รหัส: ${stu.username}</p>
+                                    </div>
+                                </div>
+                                <div class="flex-shrink-0">${statusBadge}</div>
+                            </div>
+                        `;
+                    });
+                }
+                lucide.createIcons();
+            } catch(e) { document.getElementById('studentListGrid').innerHTML = '<p class="text-danger col-span-full text-center">เกิดข้อผิดพลาดในการโหลดข้อมูล</p>'; }
+        }
+
+        // ==========================================
+        // ฟังก์ชันสร้างและพิมพ์ PDF "สรุปยอดเงินประจำวัน"
+        // ==========================================
+        window.printDailyReport = () => {
+            const dateObj = new Date();
+            const localY = dateObj.getFullYear();
+            const localM = dateObj.getMonth();
+            const localD = dateObj.getDate();
+            
+            const thaiMonths = ["มกราคม","กุมภาพันธ์","มีนาคม","เมษายน","พฤษภาคม","มิถุนายน","กรกฎาคม","สิงหาคม","กันยายน","ตุลาคม","พฤศจิกายน","ธันวาคม"];
+            const thaiDateString = `${localD} ${thaiMonths[localM]} ${localY + 543}`;
+
+            const todaysPayments = advisorState.payments.filter(p => {
+                if(!p.paid_at) return false;
+                const pDate = new Date(p.paid_at);
+                return pDate.getFullYear() === localY && pDate.getMonth() === localM && pDate.getDate() === localD;
+            });
+
+            const roomTypeStr = advisorState.students.length > 0 ? advisorState.students[0].room_type : 'ห้องเรียนปกติ';
+            const isSpecial = roomTypeStr && roomTypeStr.includes('พิเศษ');
+            const displayRoomType = isSpecial ? 'ห้องเรียนพิเศษ' : 'ห้องเรียนปกติ';
+
+            const activeFees = advisorState.fees.filter(f => f.room_type === displayRoomType);
+            
+            let tableRows = '';
+            let grandTotal = 0;
+            
+            activeFees.forEach((fee, index) => {
+                const paysForFee = todaysPayments.filter(p => p.fee_item_id === fee.id);
+                const totalAmount = paysForFee.length * fee.amount;
+                grandTotal += totalAmount;
+                
+                tableRows += `
+                    <tr>
+                        <td style="border: 1px solid #000; padding: 6px 8px; text-align: center;">${index + 1}</td>
+                        <td style="border: 1px solid #000; padding: 6px 8px;">${fee.title}</td>
+                        <td style="border: 1px solid #000; padding: 6px 8px; text-align: right;">${totalAmount === 0 ? '-' : formatCurrency(totalAmount)}</td>
+                    </tr>
+                `;
+            });
+
+            const el = document.createElement('div');
+            el.style.width = '720px';
+            el.style.backgroundColor = '#ffffff';
+
+            el.innerHTML = `
+                <div style="font-family: 'Sarabun', sans-serif; padding: 40px 50px; color: #000; font-size: 15px; box-sizing: border-box; width: 100%; line-height: 1.5;">
+                    
+                    <!-- ส่วนหัว -->
+                    <div style="text-align: center; margin-bottom: 20px;">
+                        <div style="font-weight: bold; margin-bottom: 5px;">สรุปจำนวนยอดเงิน</div>
+                        <div style="font-weight: bold;">
+                            ชั้น ${advisorState.classLevel}/${advisorState.room} ${displayRoomType} &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ประจำวันที่ ${thaiDateString}
+                        </div>
+                    </div>
+                    
+                    <!-- ตารางรายการ -->
+                    <table style="width: 100%; border-collapse: collapse; margin-bottom: 30px;">
+                        <thead>
+                            <tr>
+                                <th style="border: 1px solid #000; padding: 6px 8px; text-align: center; width: 60px;">ที่</th>
+                                <th style="border: 1px solid #000; padding: 6px 8px; text-align: center;">รายการ</th>
+                                <th style="border: 1px solid #000; padding: 6px 8px; text-align: center; width: 150px;">จำนวนเงิน</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${tableRows}
+                        </tbody>
+                        <tfoot>
+                            <tr>
+                                <td colspan="2" style="border: 1px solid #000; padding: 6px 8px; text-align: center; font-weight: bold;">รวมเป็นเงินทั้งหมด</td>
+                                <td style="border: 1px solid #000; padding: 6px 8px; text-align: right; font-weight: bold;">${formatCurrency(grandTotal)}</td>
+                            </tr>
+                        </tfoot>
+                    </table>
+
+                    <!-- สรุปจำนวนนักเรียน (แก้ไขบัคข้อความล้นบรรทัด) -->
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 50px; font-size: 15px; white-space: nowrap;">
+                        <div style="width: 48%;">
+                            <div style="margin-bottom: 10px;">จำนวนนักเรียนทั้งหมด................<span style="display:inline-block; width:30px; text-align:center;">${advisorState.total}</span>................คน</div>
+                            <div>จำนวนนักเรียนที่จ่ายไม่ครบ.........<span style="display:inline-block; width:30px; text-align:center;">${advisorState.partialPaid}</span>................คน</div>
+                        </div>
+                        <div style="width: 48%;">
+                            <div style="margin-bottom: 10px;">จำนวนนักเรียนที่จ่ายครบ..............<span style="display:inline-block; width:30px; text-align:center;">${advisorState.fullyPaid}</span>................คน</div>
+                            <div>จำนวนนักเรียนที่ยังไม่จ่าย...........<span style="display:inline-block; width:30px; text-align:center;">${advisorState.unpaid}</span>................คน</div>
+                        </div>
+                    </div>
+                    
+                    <!-- ส่วนลงชื่อเรียงบนล่าง -->
+                    <div style="text-align: center; margin-top: 40px; font-size: 15px;">
+                        <div style="margin-bottom: 50px;">
+                            ลงชื่อ.......................................................ครูที่ปรึกษา<br>
+                            <div style="margin-top: 10px;">( ${advisorState.teacherNames} )</div>
+                        </div>
+                        <div>
+                            ลงชื่อ.......................................................ผู้รับเงิน<br>
+                            <div style="margin-top: 10px;">( นางสาวชนกพร สุบินดี )</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            const originalScroll = window.scrollY;
+            window.scrollTo(0, 0);
+
+            html2pdf().set({
+                margin: 0.2, 
+                filename: `Daily_Report_${advisorState.classLevel}_${advisorState.room}_${localD}_${localM+1}.pdf`,
+                image: { type: 'jpeg', quality: 0.98 },
+                html2canvas: { scale: 2, useCORS: true, scrollY: 0, scrollX: 0 },
+                jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
+            }).from(el).save().then(() => {
+                window.scrollTo(0, originalScroll);
+            });
+        };
+
+        window.openStudentFeeModal = async (studentId, studentUsername, studentName, classLevel, room, roomType) => {
+            const studentRoomType = (roomType === 'พิเศษ' || roomType === 'ห้องเรียนพิเศษ') ? 'ห้องเรียนพิเศษ' : 'ห้องเรียนปกติ';
+            
+            showLoader();
+            const [{ data: fees }, { data: payments }] = await Promise.all([
+                dbClient.from('fee_items').select('*').eq('room_type', studentRoomType).order('created_at', { ascending: true }),
+                dbClient.from('payments').select('*').eq('student_id', studentId)
+            ]);
+            hideLoader();
+
+            let cleanRoom = room;
+            if(cleanRoom && cleanRoom.startsWith('/')) cleanRoom = cleanRoom.substring(1);
+
+            modalState = { studentId, studentUsername, studentName, classLevel, room: cleanRoom, roomType: studentRoomType, fees: fees || [], payments: payments || [] };
+
+            let html = `
+                <div id="feeModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4 fade-in">
+                    <div class="bg-white rounded-xl w-full max-w-4xl overflow-hidden flex flex-col max-h-[90vh] shadow-2xl">
+                        <div class="p-4 border-b border-slate-300 flex justify-between items-center bg-slate-50 relative">
+                            <h3 class="font-bold text-lg text-slate-800 w-full text-center pr-8">${studentName} ชั้น ${classLevel}/${cleanRoom} (${studentRoomType})</h3>
+                            <button onclick="document.getElementById('feeModal').remove();" class="text-slate-400 hover:text-danger p-1 transition-colors absolute right-4"><i data-lucide="x" class="w-6 h-6"></i></button>
+                        </div>
+                        <div class="p-4 overflow-y-auto flex-1 bg-white">
+                            <table class="w-full border-collapse border border-slate-400 text-sm md:text-base text-slate-800">
+                                <thead>
+                                    <tr class="bg-slate-100">
+                                        <th class="border border-slate-400 p-2 text-center w-12">ที่</th>
+                                        <th class="border border-slate-400 p-2 text-center">รายการ</th>
+                                        <th class="border border-slate-400 p-2 text-center w-32 md:w-40">จำนวนเงิน</th>
+                                        <th class="border border-slate-400 p-2 text-center w-32 md:w-40">
+                                            <label class="flex items-center justify-center gap-2 cursor-pointer w-full h-full m-0">
+                                                <input type="checkbox" id="checkAllFees" onchange="window.toggleAllFees(this)" class="w-4 h-4 cursor-pointer accent-primary">
+                                                <span>จ่ายทั้งหมด</span>
+                                            </label>
+                                        </th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+            `;
+
+            let totalToPay = 0;
+            let allChecked = true;
+
+            if (modalState.fees.length === 0) {
+                html += `<tr><td colspan="4" class="text-center p-8 text-slate-500 border border-slate-400">ไม่มีรายการค่าเทอม</td></tr>`;
+                allChecked = false;
+            } else {
+                modalState.fees.forEach((fee, index) => {
+                    const payRecord = modalState.payments.find(p => p.fee_item_id === fee.id);
+                    const isPaid = payRecord?.is_paid || false;
+                    
+                    totalToPay += Number(fee.amount);
+                    if (!isPaid) allChecked = false;
+
+                    html += `
+                        <tr class="hover:bg-slate-50 transition-colors">
+                            <td class="border border-slate-400 p-2 text-center">${index + 1}</td>
+                            <td class="border border-slate-400 p-2">${fee.title}</td>
+                            <td class="border border-slate-400 p-2 text-right">${formatCurrency(fee.amount)}</td>
+                            <td class="border border-slate-400 p-2 text-center bg-slate-50/50">
+                                <input type="checkbox" value="${fee.id}" data-amount="${fee.amount}" class="fee-checkbox w-5 h-5 cursor-pointer accent-primary" ${isPaid ? 'checked' : ''} onchange="window.calculateModalTotal()">
+                            </td>
+                        </tr>
+                    `;
+                });
+            }
+
+            html += `
+                                </tbody>
+                                <tfoot class="bg-slate-50">
+                                    <tr>
+                                        <td colspan="2" class="border border-slate-400 p-3 text-right font-bold text-slate-700">รวมเป็นเงินทั้งหมด</td>
+                                        <td class="border border-slate-400 p-3 text-right font-bold text-slate-700">${formatCurrency(totalToPay)}</td>
+                                        <td class="border border-slate-400 p-3 bg-slate-100"></td>
+                                    </tr>
+                                    <tr>
+                                        <td colspan="2" class="border border-slate-400 p-3 text-right font-bold text-primary text-lg">รวมเงินที่จ่ายวันนี้</td>
+                                        <td class="border border-slate-400 p-3 text-right font-bold text-primary text-lg" id="modalTotalSelected">0.00</td>
+                                        <td class="border border-slate-400 p-3 bg-slate-100"></td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                        <div class="p-4 border-t border-slate-300 bg-slate-100 flex flex-col md:flex-row justify-end gap-3">
+                            <button onclick="window.printCurrentReceipt()" class="bg-white border border-slate-400 text-slate-700 px-6 py-2.5 rounded-lg flex justify-center items-center gap-2 hover:bg-slate-50 transition shadow-sm font-medium">
+                                <i data-lucide="printer" class="w-5 h-5"></i> พิมพ์ใบเสร็จ
+                            </button>
+                            <button onclick="window.saveStudentPayments()" class="bg-primary text-white px-6 py-2.5 rounded-lg flex justify-center items-center gap-2 hover:bg-indigo-700 transition shadow-sm font-medium">
+                                <i data-lucide="save" class="w-5 h-5"></i> บันทึกข้อมูล
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            document.body.insertAdjacentHTML('beforeend', html);
+            lucide.createIcons();
+            
+            if(allChecked && modalState.fees.length > 0) document.getElementById('checkAllFees').checked = true;
+            window.calculateModalTotal();
+        };
+
+        window.toggleAllFees = (cb) => {
+            document.querySelectorAll('.fee-checkbox').forEach(c => c.checked = cb.checked);
+            window.calculateModalTotal();
+        };
+
+        window.calculateModalTotal = () => {
+            let total = 0;
+            let allChecked = true;
+            const checkboxes = document.querySelectorAll('.fee-checkbox');
+            if(checkboxes.length === 0) allChecked = false;
+            checkboxes.forEach(c => {
+                if(c.checked) total += Number(c.dataset.amount);
+                else allChecked = false;
+            });
+            document.getElementById('modalTotalSelected').innerText = formatCurrency(total);
+            document.getElementById('checkAllFees').checked = allChecked;
+        };
+
+        window.saveStudentPayments = async () => {
+            showLoader();
+            const checkboxes = document.querySelectorAll('.fee-checkbox');
+            const toInsert = [];
+            const toDeleteIds = [];
+
+            checkboxes.forEach(c => {
+                const existing = modalState.payments.find(p => p.fee_item_id === c.value && p.is_paid);
+                if(c.checked) {
+                    if (!existing) {
+                        toInsert.push({
+                            student_id: modalState.studentId,
+                            fee_item_id: c.value,
+                            is_paid: true,
+                            paid_at: new Date().toISOString(),
+                            paid_by_teacher: appState.user.id
+                        });
+                    }
+                } else {
+                    if (existing) {
+                        toDeleteIds.push(c.value);
+                    }
+                }
+            });
+
+            try {
+                // ลบรายการที่ถูกติ๊กออก
+                if(toDeleteIds.length > 0) {
+                    await dbClient.from('payments').delete().eq('student_id', modalState.studentId).in('fee_item_id', toDeleteIds);
+                }
+                
+                // เพิ่มรายการใหม่
+                if(toInsert.length > 0) {
+                    let nextNum = null;
+                    
+                    // 1. ลองใช้แบบ RPC (ป้องกันเลขซ้ำ)
+                    const { data: rpcNum, error: rpcError } = await dbClient.rpc('get_next_receipt_no');
+                    
+                    if (!rpcError && rpcNum) {
+                        nextNum = rpcNum;
+                    } else {
+                        // 2. แผนสำรอง (Fallback): ถ้า RPC พังหรือติด Error 400 ให้กลับมาใช้วิธีปกติ
+                        console.warn("RPC Failed, using fallback method");
+                        const { data: sSettings } = await dbClient.from('school_settings').select('id, current_receipt_no').limit(1).single();
+                        if (sSettings) {
+                            nextNum = (parseInt(sSettings.current_receipt_no) || 0) + 1;
+                            // อัปเดตกลับลงฐานข้อมูล
+                            await dbClient.from('school_settings').update({ current_receipt_no: nextNum }).eq('id', sSettings.id);
+                        }
+                    }
+
+                    // ถ้ารันเลขสำเร็จ ให้นำเลขไปใส่ในใบเสร็จ
+                    if (nextNum) {
+                        let yearStr = appState.school?.academic_year || (new Date().getFullYear() + 543).toString();
+                        let newReceiptNo = String(nextNum).padStart(4, '0') + '/' + yearStr;
+                        
+                        toInsert.forEach(p => p.receipt_no = newReceiptNo);
+                        if(appState.school) appState.school.current_receipt_no = nextNum; 
+                    }
+                    
+                    // บันทึกรายการจ่ายเงิน
+                    await dbClient.from('payments').upsert(toInsert, { onConflict: 'student_id,fee_item_id' });
+                }
+                
+                showToast('บันทึกข้อมูลสำเร็จ', 'success');
+                document.getElementById('feeModal').remove();
+                if(appState.currentPage === 'advisory') renderAdvisory(document.getElementById('contentArea'));
+            } catch(e) { 
+                showToast('เกิดข้อผิดพลาดในการบันทึก', 'danger'); 
+                console.error(e); 
+            }
+            hideLoader();
+        };
+
+        // ==========================================
+        // ฟังก์ชันสร้างและพิมพ์ PDF "ใบเสร็จรับเงิน (รายบุคคล)"
+        // ==========================================
+        window.printCurrentReceipt = async () => {
+            const checkedBoxes = Array.from(document.querySelectorAll('.fee-checkbox:checked'));
+            if(checkedBoxes.length === 0) { showToast('กรุณาเลือกรายการที่ต้องการพิมพ์ใบเสร็จ', 'warning'); return; }
+
+            const unsavedItems = checkedBoxes.filter(c => !modalState.payments.some(p => p.fee_item_id === c.value && p.is_paid));
+            if (unsavedItems.length > 0) {
+                showToast('กรุณากด "บันทึกข้อมูล" ก่อนพิมพ์ใบเสร็จ', 'warning');
+                return;
+            }
+
+            if (!appState.school) {
+                const { data } = await dbClient.from('school_settings').select('*').limit(1).maybeSingle();
+                if (data) appState.school = data;
+            }
+
+            let totalAmount = 0;
+            let receiptRows = '';
+            let receiptNos = new Set();
+            let payDates = new Set();
+            
+            checkedBoxes.forEach((c, index) => {
+                const feeId = c.value;
+                const feeItem = modalState.fees.find(f => f.id === feeId);
+                const payRecord = modalState.payments.find(p => p.fee_item_id === feeId);
+                
+                if(feeItem && payRecord) {
+                    totalAmount += Number(feeItem.amount);
+                    if(payRecord.receipt_no) receiptNos.add(payRecord.receipt_no);
+                    if(payRecord.paid_at) {
+                        const dateObj = new Date(payRecord.paid_at);
+                        const thaiMonths = ["มกราคม","กุมภาพันธ์","มีนาคม","เมษายน","พฤษภาคม","มิถุนายน","กรกฎาคม","สิงหาคม","กันยายน","ตุลาคม","พฤศจิกายน","ธันวาคม"];
+                        payDates.add(`${dateObj.getDate()} ${thaiMonths[dateObj.getMonth()]} ${dateObj.getFullYear() + 543}`);
+                    }
+
+                    receiptRows += `
+                        <tr>
+                            <td style="border: 1px solid #000; padding: 6px; text-align: center;">${index + 1}</td>
+                            <td style="border: 1px solid #000; padding: 6px;">${feeItem.title}</td>
+                            <td style="border: 1px solid #000; padding: 6px; text-align: center;">${formatCurrency(feeItem.amount)}</td>
+                            <td style="border: 1px solid #000; padding: 6px; text-align: center;">-</td>
+                        </tr>
+                    `;
+                }
+            });
+
+            const rNoStr = Array.from(receiptNos).join(', ') || '-';
+            const dateStr = Array.from(payDates).join(', ') || '-';
+            const thaiBahtText = ThaiBaht(totalAmount);
+
+            const sName = appState.school?.school_name || 'โรงเรียนตัวอย่าง';
+            const sAddress = appState.school?.school_address || '-';
+            const term = appState.school?.term || '-';
+            const year = appState.school?.academic_year || '-';
+            const sLogo = appState.school?.school_logo || '';
+            const sSig = appState.school?.finance_signature || '';
+
+            const logoHtml = sLogo ? `<img src="${sLogo}" style="height: 70px; width: auto; object-fit: contain; display: block; margin: 0 auto;">` : '';
+            const sigHtml = sSig ? `<img src="${sSig}" style="height: 40px; width: auto; object-fit: contain; display: block; margin: 0 auto 5px auto;">` : '<div style="height:40px;"></div>';
+
+            const el = document.createElement('div');
+            // ปรับความกว้างให้พอดีกระดาษ A4 (ไม่ตกขอบขวา)
+            el.style.width = '720px';
+            el.style.backgroundColor = '#ffffff';
+
+            el.innerHTML = `
+                <div style="font-family: 'Sarabun', sans-serif; padding: 20px 30px; color: #000; font-size: 15px; line-height: 1.4; box-sizing: border-box; width: 100%;">
+                    <div style="text-align: center; color: red; font-weight: bold; margin-bottom: 5px; font-size: 16px;">ต้นฉบับ</div>
+                    
+                    <div style="text-align: center; margin-bottom: 10px;">
+                        ${logoHtml}
+                    </div>
+                    
+                    <div style="text-align: center; margin-bottom: 15px;">
+                        <h2 style="margin: 0; font-size: 20px; font-weight: bold;">ใบเสร็จชำระเงิน</h2>
+                        <h3 style="margin: 3px 0 0; font-size: 18px; font-weight: normal;">${sName}</h3>
+                        <p style="margin: 3px 0 0; font-size: 14px;">${sAddress}</p>
+                    </div>
+                    
+                    <table style="width: 100%; border: none; border-collapse: collapse; margin-bottom: 15px; font-size: 15px;">
+                        <tr>
+                            <td style="padding: 2px 0; width: 65%;"><strong>เลขที่ใบเสร็จ:</strong> ${rNoStr}</td>
+                            <td style="padding: 2px 0; width: 35%;"></td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 2px 0;"><strong>ประจำปีการศึกษา:</strong> ${year} &nbsp;&nbsp;&nbsp;&nbsp; <strong>ภาคเรียนที่:</strong> ${term}</td>
+                            <td style="padding: 2px 0;"></td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 2px 0;"><strong>รหัสประจำตัว:</strong> ${modalState.studentUsername}</td>
+                            <td style="padding: 2px 0;"></td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 2px 0;"><strong>ชื่อ-สกุล:</strong> ${modalState.studentName}</td>
+                            <td style="padding: 2px 0;"></td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 2px 0;"><strong>ชั้น:</strong> ${modalState.classLevel}/${modalState.room} &nbsp;&nbsp;&nbsp;&nbsp; <strong>ประเภทห้อง:</strong> ${modalState.roomType}</td>
+                            <td style="padding: 2px 0; text-align: right; font-weight: bold;">วันที่ชำระ: ${dateStr}</td>
+                        </tr>
+                    </table>
+
+                    <table style="width: 100%; border-collapse: collapse; margin-bottom: 15px; font-size: 14px;">
+                        <thead>
+                            <tr>
+                                <th style="border: 1px solid #000; padding: 6px; text-align: center; width: 60px;">ลำดับ</th>
+                                <th style="border: 1px solid #000; padding: 6px; text-align: center;">รายการ</th>
+                                <th style="border: 1px solid #000; padding: 6px; text-align: center; width: 120px;">ราคา/หน่วย</th>
+                                <th style="border: 1px solid #000; padding: 6px; text-align: center; width: 80px;">หมายเหตุ</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${receiptRows}
+                        </tbody>
+                        <tfoot>
+                            <tr>
+                                <td style="border: 1px solid #000; padding: 6px; text-align: center; font-weight: bold;">รวม</td>
+                                <td style="border: 1px solid #000; padding: 6px; text-align: center; font-weight: bold;">${thaiBahtText}</td>
+                                <td style="border: 1px solid #000; padding: 6px; text-align: center; font-weight: bold;">${formatCurrency(totalAmount)}</td>
+                                <td style="border: 1px solid #000; padding: 6px; text-align: center; font-weight: bold;">บาท</td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                    
+                    <p style="margin-top: 10px; font-weight: bold; font-size: 15px;">ได้รับเงินไว้เป็นการถูกต้องแล้ว</p>
+                    
+                    <div style="text-align: center; margin-top: 30px; float: right; width: 250px;">
+                        ${sigHtml}
+                        <p style="margin: 2px 0; font-size: 15px;">( นางสาวชนกพร สุบินดี )</p>
+                        <p style="margin: 2px 0; font-size: 14px;">เจ้าหน้าที่การเงิน</p>
+                    </div>
+                    <div style="clear: both;"></div>
+                </div>
+            `;
+            
+            const originalScroll = window.scrollY;
+            window.scrollTo(0, 0);
+
+            html2pdf().set({
+                margin: 0.2, 
+                filename: `Receipt_${modalState.studentUsername}.pdf`,
+                image: { type: 'jpeg', quality: 0.98 },
+                html2canvas: { scale: 2, useCORS: true, scrollY: 0, scrollX: 0 },
+                jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
+            }).from(el).save().then(() => {
+                window.scrollTo(0, originalScroll);
+            });
+        };
+
+       // ==========================================
+        // 5.6 My Fees (Student) - หน้าของนักเรียน
+        // ==========================================
+        let studentFeeState = {
+            fees: [],
+            payments: []
+        };
+
+        async function renderStudentFees(container) {
+            container.innerHTML = `
+                <div class="fade-in">
+                    <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+                        <div>
+                            <h2 class="text-2xl font-bold mb-2">ข้อมูลการชำระเงินของฉัน</h2>
+                            <p class="text-slate-500 text-base">ตรวจสอบรายการค่าบำรุงการศึกษาและพิมพ์ใบเสร็จ</p>
+                        </div>
+                        <button onclick="window.printStudentReceipt()" class="bg-indigo-600 text-white px-5 py-2.5 rounded-xl flex justify-center items-center gap-2 hover:bg-indigo-700 transition shadow-sm font-medium w-full md:w-auto">
+                            <i data-lucide="printer" class="w-5 h-5"></i> พิมพ์ใบเสร็จ
+                        </button>
+                    </div>
+                    
+                    <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left border-collapse">
+                                <thead>
+                                    <tr class="bg-slate-50 text-slate-600 border-b border-slate-100">
+                                        <th class="p-4 font-medium text-center w-16">ที่</th>
+                                        <th class="p-4 font-medium">รายการ</th>
+                                        <th class="p-4 font-medium text-right w-32">จำนวนเงิน</th>
+                                        <th class="p-4 font-medium text-center w-40">สถานะ</th>
+                                        <th class="p-4 font-medium text-center w-40">วันที่ชำระ</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="studentFeeListGrid">
+                                    <tr><td colspan="5" class="text-center p-8"><div class="loader mx-auto"></div></td></tr>
+                                </tbody>
+                                <tfoot id="studentFeeFooter" class="bg-slate-50 border-t border-slate-100 hidden">
+                                </tfoot>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            try {
+                const user = appState.user;
+                let roomType = user.room_type || 'ห้องเรียนปกติ';
+                if (roomType.includes('พิเศษ')) roomType = 'ห้องเรียนพิเศษ';
+                else roomType = 'ห้องเรียนปกติ';
+
+                const [{ data: fees }, { data: payments }] = await Promise.all([
+                    dbClient.from('fee_items').select('*').eq('room_type', roomType).order('created_at', { ascending: true }),
+                    dbClient.from('payments').select('*').eq('student_id', user.id).eq('is_paid', true)
+                ]);
+
+                studentFeeState.fees = fees || [];
+                studentFeeState.payments = payments || [];
+
+                const tbody = document.getElementById('studentFeeListGrid');
+                const tfoot = document.getElementById('studentFeeFooter');
+                
+                if (studentFeeState.fees.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="5" class="text-center p-8 text-slate-500">ไม่มีรายการค่าเทอมสำหรับห้องเรียนนี้</td></tr>`;
+                    return;
+                }
+
+                let html = '';
+                let totalAmount = 0;
+                let totalPaid = 0;
+
+                studentFeeState.fees.forEach((fee, index) => {
+                    const payRecord = studentFeeState.payments.find(p => p.fee_item_id === fee.id);
+                    totalAmount += Number(fee.amount);
+                    
+                    let statusBadge = '<span class="px-2.5 py-1 bg-red-100 text-red-700 rounded-md text-sm font-medium">ยังไม่จ่าย</span>';
+                    let dateText = '-';
+                    
+                    if (payRecord) {
+                        totalPaid += Number(fee.amount);
+                        statusBadge = '<span class="px-2.5 py-1 bg-emerald-100 text-emerald-700 rounded-md text-sm font-medium">จ่ายแล้ว</span>';
+                        if (payRecord.paid_at) {
+                            const d = new Date(payRecord.paid_at);
+                            const thaiMonths = ["มกราคม","กุมภาพันธ์","มีนาคม","เมษายน","พฤษภาคม","มิถุนายน","กรกฎาคม","สิงหาคม","กันยายน","ตุลาคม","พฤศจิกายน","ธันวาคม"];
+                            dateText = `${d.getDate()} ${thaiMonths[d.getMonth()]} ${d.getFullYear()+543}`;
+                        }
+                    }
+
+                    html += `
+                        <tr class="border-b border-slate-50 hover:bg-slate-50 transition">
+                            <td class="p-4 text-center text-slate-600">${index + 1}</td>
+                            <td class="p-4 text-slate-800">${fee.title}</td>
+                            <td class="p-4 text-right font-medium text-slate-700">${formatCurrency(fee.amount)}</td>
+                            <td class="p-4 text-center">${statusBadge}</td>
+                            <td class="p-4 text-center text-slate-500">${dateText}</td>
+                        </tr>
+                    `;
+                });
+
+                tbody.innerHTML = html;
+                
+                tfoot.innerHTML = `
+                    <tr>
+                        <td colspan="2" class="p-4 text-right font-bold text-slate-700">ยอดรวมค่าบำรุงการศึกษาทั้งหมด</td>
+                        <td class="p-4 text-right font-bold text-slate-800">${formatCurrency(totalAmount)}</td>
+                        <td colspan="2"></td>
+                    </tr>
+                    <tr>
+                        <td colspan="2" class="p-4 text-right font-bold text-primary">ยอดที่ชำระเรียบร้อยแล้ว</td>
+                        <td class="p-4 text-right font-bold text-primary">${formatCurrency(totalPaid)}</td>
+                        <td colspan="2"></td>
+                    </tr>
+                `;
+                tfoot.classList.remove('hidden');
+                lucide.createIcons();
+
+            } catch (error) {
+                document.getElementById('studentFeeListGrid').innerHTML = `<tr><td colspan="5" class="text-center p-8 text-danger">เกิดข้อผิดพลาดในการโหลดข้อมูล</td></tr>`;
+            }
+        }
+
+        window.printStudentReceipt = async () => {
+            if (studentFeeState.payments.length === 0) {
+                showToast('ยังไม่มีรายการที่ชำระเงิน ไม่สามารถพิมพ์ใบเสร็จได้', 'warning');
+                return;
+            }
+
+            // ดึงข้อมูลโรงเรียนใหม่เสมอ
+            if (!appState.school) {
+                const { data } = await dbClient.from('school_settings').select('*').limit(1).maybeSingle();
+                if (data) appState.school = data;
+            }
+
+            let totalAmount = 0;
+            let receiptRows = '';
+            let receiptNos = new Set();
+            let payDates = new Set();
+            
+            // กรองมาเฉพาะวิชาที่ "จ่ายแล้ว" เท่านั้น เพื่อออกใบเสร็จ
+            const paidFees = studentFeeState.fees.filter(fee => studentFeeState.payments.some(p => p.fee_item_id === fee.id));
+
+            paidFees.forEach((feeItem, index) => {
+                const payRecord = studentFeeState.payments.find(p => p.fee_item_id === feeItem.id);
+                
+                totalAmount += Number(feeItem.amount);
+                if(payRecord.receipt_no) receiptNos.add(payRecord.receipt_no);
+                if(payRecord.paid_at) {
+                    const dateObj = new Date(payRecord.paid_at);
+                    const thaiMonths = ["มกราคม","กุมภาพันธ์","มีนาคม","เมษายน","พฤษภาคม","มิถุนายน","กรกฎาคม","สิงหาคม","กันยายน","ตุลาคม","พฤศจิกายน","ธันวาคม"];
+                    payDates.add(`${dateObj.getDate()} ${thaiMonths[dateObj.getMonth()]} ${dateObj.getFullYear() + 543}`);
+                }
+
+                receiptRows += `
+                    <tr>
+                        <td style="border: 1px solid #000; padding: 6px; text-align: center;">${index + 1}</td>
+                        <td style="border: 1px solid #000; padding: 6px;">${feeItem.title}</td>
+                        <td style="border: 1px solid #000; padding: 6px; text-align: center;">${formatCurrency(feeItem.amount)}</td>
+                        <td style="border: 1px solid #000; padding: 6px; text-align: center;">-</td>
+                    </tr>
+                `;
+            });
+
+            const rNoStr = Array.from(receiptNos).join(', ') || '-';
+            const dateStr = Array.from(payDates).join(', ') || '-';
+            const thaiBahtText = ThaiBaht(totalAmount);
+
+            const user = appState.user;
+            const studentName = (user.prefix || '') + user.firstname + ' ' + user.lastname;
+            let roomType = user.room_type || 'ห้องเรียนปกติ';
+            if (roomType.includes('พิเศษ')) roomType = 'ห้องเรียนพิเศษ';
+            else roomType = 'ห้องเรียนปกติ';
+            let cleanRoom = user.room || '';
+            if(cleanRoom.startsWith('/')) cleanRoom = cleanRoom.substring(1);
+
+            const sName = appState.school?.school_name || 'โรงเรียนตัวอย่าง';
+            const sAddress = appState.school?.school_address || '-';
+            const term = appState.school?.term || '-';
+            const year = appState.school?.academic_year || '-';
+            const sLogo = appState.school?.school_logo || '';
+            const sSig = appState.school?.finance_signature || '';
+
+            const logoHtml = sLogo ? `<img src="${sLogo}" style="height: 70px; width: auto; object-fit: contain; display: block; margin: 0 auto;">` : '';
+            const sigHtml = sSig ? `<img src="${sSig}" style="height: 40px; width: auto; object-fit: contain; display: block; margin: 0 auto 5px auto;">` : '<div style="height:40px;"></div>';
+
+            const el = document.createElement('div');
+            el.style.width = '720px';
+            el.style.backgroundColor = '#ffffff';
+
+            el.innerHTML = `
+                <div style="font-family: 'Sarabun', sans-serif; padding: 20px 30px; color: #000; font-size: 15px; line-height: 1.4; box-sizing: border-box; width: 100%;">
+                    <div style="text-align: center; color: #475569; font-weight: bold; margin-bottom: 5px; font-size: 16px;">สำเนาสำหรับนักเรียน</div>
+                    
+                    <div style="text-align: center; margin-bottom: 10px;">
+                        ${logoHtml}
+                    </div>
+                    
+                    <div style="text-align: center; margin-bottom: 15px;">
+                        <h2 style="margin: 0; font-size: 20px; font-weight: bold;">ใบเสร็จชำระเงิน</h2>
+                        <h3 style="margin: 3px 0 0; font-size: 18px; font-weight: normal;">${sName}</h3>
+                        <p style="margin: 3px 0 0; font-size: 14px;">${sAddress}</p>
+                    </div>
+                    
+                    <table style="width: 100%; border: none; border-collapse: collapse; margin-bottom: 15px; font-size: 15px;">
+                        <tr>
+                            <td style="padding: 2px 0; width: 65%;"><strong>เลขที่ใบเสร็จ:</strong> ${rNoStr}</td>
+                            <td style="padding: 2px 0; width: 35%;"></td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 2px 0;"><strong>ประจำปี:</strong> ${year} &nbsp;&nbsp;&nbsp;&nbsp; <strong>ภาคเรียนที่:</strong> ${term}</td>
+                            <td style="padding: 2px 0;"></td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 2px 0;"><strong>รหัสประจำตัว:</strong> ${user.username}</td>
+                            <td style="padding: 2px 0;"></td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 2px 0;"><strong>ชื่อ-สกุล:</strong> ${studentName}</td>
+                            <td style="padding: 2px 0;"></td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 2px 0;"><strong>ชั้น:</strong> ${user.class_level}/${cleanRoom} &nbsp;&nbsp;&nbsp;&nbsp; <strong>ประเภทห้อง:</strong> ${roomType}</td>
+                            <td style="padding: 2px 0; text-align: right; font-weight: bold;">วันที่ชำระ: ${dateStr}</td>
+                        </tr>
+                    </table>
+
+                    <table style="width: 100%; border-collapse: collapse; margin-bottom: 15px; font-size: 14px;">
+                        <thead>
+                            <tr>
+                                <th style="border: 1px solid #000; padding: 6px; text-align: center; width: 60px;">ลำดับ</th>
+                                <th style="border: 1px solid #000; padding: 6px; text-align: center;">รายการ</th>
+                                <th style="border: 1px solid #000; padding: 6px; text-align: center; width: 120px;">ราคา/หน่วย</th>
+                                <th style="border: 1px solid #000; padding: 6px; text-align: center; width: 80px;">หมายเหตุ</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${receiptRows}
+                        </tbody>
+                        <tfoot>
+                            <tr>
+                                <td style="border: 1px solid #000; padding: 6px; text-align: center; font-weight: bold;">รวม</td>
+                                <td style="border: 1px solid #000; padding: 6px; text-align: center; font-weight: bold;">${thaiBahtText}</td>
+                                <td style="border: 1px solid #000; padding: 6px; text-align: center; font-weight: bold;">${formatCurrency(totalAmount)}</td>
+                                <td style="border: 1px solid #000; padding: 6px; text-align: center; font-weight: bold;">บาท</td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                    
+                    <p style="margin-top: 10px; font-weight: bold; font-size: 15px;">ได้รับเงินไว้เป็นการถูกต้องแล้ว</p>
+                    
+                    <div style="text-align: center; margin-top: 30px; float: right; width: 250px;">
+                        ${sigHtml}
+                        <p style="margin: 2px 0; font-size: 15px;">( นางสาวชนกพร สุบินดี )</p>
+                        <p style="margin: 2px 0; font-size: 14px;">เจ้าหน้าที่การเงิน</p>
+                    </div>
+                    <div style="clear: both;"></div>
+                </div>
+            `;
+            
+            const originalScroll = window.scrollY;
+            window.scrollTo(0, 0);
+
+            html2pdf().set({
+                margin: 0.2, 
+                filename: `Receipt_Copy_${user.username}.pdf`,
+                image: { type: 'jpeg', quality: 0.98 },
+                html2canvas: { scale: 2, useCORS: true, scrollY: 0, scrollX: 0 },
+                jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
+            }).from(el).save().then(() => {
+                window.scrollTo(0, originalScroll);
+            });
+        };
+
+        document.addEventListener('DOMContentLoaded', initApp);
+    </script>
+</body>
+</html>
