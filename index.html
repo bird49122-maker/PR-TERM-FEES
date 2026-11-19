@@ -2104,26 +2104,31 @@
             let receiptNos = new Set();
             let payDates = new Set();
             
-            // กรองมาเฉพาะวิชาที่ "จ่ายแล้ว" เท่านั้น เพื่อออกใบเสร็จ
-            const paidFees = studentFeeState.fees.filter(fee => studentFeeState.payments.some(p => p.fee_item_id === fee.id));
-
-            paidFees.forEach((feeItem, index) => {
+            // วนลูปแสดงรายการค่าเทอม "ทั้งหมด" ของห้องเรียนนั้น
+            studentFeeState.fees.forEach((feeItem, index) => {
                 const payRecord = studentFeeState.payments.find(p => p.fee_item_id === feeItem.id);
+                let amountDisplay = '-';
+                let remarkDisplay = '-';
                 
-                totalAmount += Number(feeItem.amount);
-                if(payRecord.receipt_no) receiptNos.add(payRecord.receipt_no);
-                if(payRecord.paid_at) {
-                    const dateObj = new Date(payRecord.paid_at);
-                    const thaiMonths = ["มกราคม","กุมภาพันธ์","มีนาคม","เมษายน","พฤษภาคม","มิถุนายน","กรกฎาคม","สิงหาคม","กันยายน","ตุลาคม","พฤศจิกายน","ธันวาคม"];
-                    payDates.add(`${dateObj.getDate()} ${thaiMonths[dateObj.getMonth()]} ${dateObj.getFullYear() + 543}`);
+                // ถ้ารายการนี้จ่ายแล้ว ให้บวกยอดเงินและเก็บข้อมูลใบเสร็จ
+                if (payRecord) {
+                    totalAmount += Number(feeItem.amount);
+                    amountDisplay = formatCurrency(feeItem.amount);
+                    
+                    if(payRecord.receipt_no) receiptNos.add(payRecord.receipt_no);
+                    if(payRecord.paid_at) {
+                        const dateObj = new Date(payRecord.paid_at);
+                        const thaiMonths = ["มกราคม","กุมภาพันธ์","มีนาคม","เมษายน","พฤษภาคม","มิถุนายน","กรกฎาคม","สิงหาคม","กันยายน","ตุลาคม","พฤศจิกายน","ธันวาคม"];
+                        payDates.add(`${dateObj.getDate()} ${thaiMonths[dateObj.getMonth()]} ${dateObj.getFullYear() + 543}`);
+                    }
                 }
 
                 receiptRows += `
                     <tr>
                         <td style="border: 1px solid #000; padding: 6px; text-align: center;">${index + 1}</td>
                         <td style="border: 1px solid #000; padding: 6px;">${feeItem.title}</td>
-                        <td style="border: 1px solid #000; padding: 6px; text-align: center;">${formatCurrency(feeItem.amount)}</td>
-                        <td style="border: 1px solid #000; padding: 6px; text-align: center;">-</td>
+                        <td style="border: 1px solid #000; padding: 6px; text-align: center;">${amountDisplay}</td>
+                        <td style="border: 1px solid #000; padding: 6px; text-align: center;">${remarkDisplay}</td>
                     </tr>
                 `;
             });
@@ -2174,7 +2179,7 @@
                             <td style="padding: 2px 0; width: 35%;"></td>
                         </tr>
                         <tr>
-                            <td style="padding: 2px 0;"><strong>ประจำปี:</strong> ${year} &nbsp;&nbsp;&nbsp;&nbsp; <strong>ภาคเรียนที่:</strong> ${term}</td>
+                            <td style="padding: 2px 0;"><strong>ประจำปีการศึกษา:</strong> ${year} &nbsp;&nbsp;&nbsp;&nbsp; <strong>ภาคเรียนที่:</strong> ${term}</td>
                             <td style="padding: 2px 0;"></td>
                         </tr>
                         <tr>
