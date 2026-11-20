@@ -552,6 +552,8 @@
         
         // --- 5.1 Dashboard ---
         async function renderDashboard(container) {
+            const isAdmin = appState.user && appState.user.role === 'admin';
+
             container.innerHTML = `
                 <div class="fade-in">
                     <h2 class="text-2xl font-bold mb-6">ภาพรวมระบบ (Dashboard)</h2>
@@ -561,6 +563,13 @@
                         <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 skeleton h-28"></div>
                         <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 skeleton h-28"></div>
                     </div>
+                    ${isAdmin ? `
+                    <!-- การ์ดสรุปยอดเงินทั้งโรงเรียน (แสดงเฉพาะ Admin) -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6" id="adminMoneyStats">
+                        <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 skeleton h-24"></div>
+                        <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 skeleton h-24"></div>
+                    </div>
+                    ` : ''}
                     <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 w-full h-80">
                         <canvas id="paymentChart"></canvas>
                     </div>
@@ -569,8 +578,8 @@
             try {
                 const [{ data: students }, { data: fees }, { data: payments }] = await Promise.all([
                     dbClient.from('students').select('id, room_type').limit(5000),
-                    dbClient.from('fee_items').select('id, room_type').limit(100),
-                    dbClient.from('payments').select('student_id').eq('is_paid', true).limit(10000)
+                    dbClient.from('fee_items').select('id, room_type, amount').limit(100),
+                    dbClient.from('payments').select('student_id, fee_item_id, paid_at').eq('is_paid', true).limit(10000)
                 ]);
 
                 const total = students ? students.length : 0;
@@ -613,6 +622,52 @@
                         <div class="bg-red-100 p-3 rounded-xl text-danger hidden md:block"><i data-lucide="alert-circle"></i></div>
                     </div>
                 `;
+
+                // คำนวณและแสดงยอดเงินเฉพาะสิทธิ์ Admin เท่านั้น
+                if (isAdmin) {
+                    const now = new Date();
+                    const localY = now.getFullYear();
+                    const localM = now.getMonth();
+                    const localD = now.getDate();
+
+                    const feeAmountMap = {};
+                    (fees || []).forEach(f => { feeAmountMap[f.id] = Number(f.amount) || 0; });
+
+                    let adminTodayTotal = 0;
+                    let adminAllTimeTotal = 0;
+
+                    (payments || []).forEach(p => {
+                        const amt = feeAmountMap[p.fee_item_id] || 0;
+                        adminAllTimeTotal += amt;
+                        if (p.paid_at) {
+                            const pDate = new Date(p.paid_at);
+                            if (pDate.getFullYear() === localY && pDate.getMonth() === localM && pDate.getDate() === localD) {
+                                adminTodayTotal += amt;
+                            }
+                        }
+                    });
+
+                    const moneyContainer = document.getElementById('adminMoneyStats');
+                    if (moneyContainer) {
+                        moneyContainer.innerHTML = `
+                            <div class="bg-gradient-to-r from-emerald-500 to-teal-600 p-5 rounded-2xl shadow-sm text-white flex items-center justify-between">
+                                <div>
+                                    <p class="text-emerald-100 text-sm font-medium mb-1">ยอดรับชำระวันนี้ (ทั้งโรงเรียน)</p>
+                                    <h3 class="text-2xl md:text-3xl font-bold">${formatCurrency(adminTodayTotal)} <span class="text-base font-normal">บาท</span></h3>
+                                </div>
+                                <div class="bg-white/20 p-3.5 rounded-xl"><i data-lucide="banknote" class="w-7 h-7 text-white"></i></div>
+                            </div>
+                            <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between">
+                                <div>
+                                    <p class="text-slate-500 text-sm font-medium mb-1">ยอดรับชำระสะสมทั้งหมด (ทั้งโรงเรียน)</p>
+                                    <h3 class="text-2xl md:text-3xl font-bold text-indigo-600">${formatCurrency(adminAllTimeTotal)} <span class="text-base font-normal text-slate-500">บาท</span></h3>
+                                </div>
+                                <div class="bg-indigo-50 p-3.5 rounded-xl text-indigo-600"><i data-lucide="wallet" class="w-7 h-7"></i></div>
+                            </div>
+                        `;
+                    }
+                }
+
                 lucide.createIcons();
 
                 const ctx = document.getElementById('paymentChart').getContext('2d');
@@ -1118,12 +1173,14 @@
 
             try {
                 if (id) {
-                    await dbClient.from(tableName).update(payload).eq('id', id);
-                    showToast('อัปเดตข้อมูลสำเร็จ');
-                } else {
-                    await dbClient.from(tableName).insert([payload]);
-                    showToast('เพิ่มข้อมูลสำเร็จ');
-                }
+					const { error } = await dbClient.from(tableName).update(payload).eq('id', id);
+					if (error) throw error;
+					showToast('อัปเดตข้อมูลสำเร็จ');
+				} else {
+					const { error } = await dbClient.from(tableName).insert([payload]);
+					if (error) throw error;
+					showToast('เพิ่มข้อมูลสำเร็จ');
+				}
                 closeUserModal();
                 fetchDataForClass(manageState.currentClass); 
             } catch(error) {
@@ -1147,8 +1204,9 @@
                     showLoader();
                     try {
                         const tableName = (role === 'student') ? 'students' : 'teachers';
-                        await dbClient.from(tableName).delete().eq('id', id);
-                        showToast('ลบข้อมูลเรียบร้อยแล้ว', 'success');
+						const { error } = await dbClient.from(tableName).delete().eq('id', id);
+						if (error) throw error;
+						showToast('ลบข้อมูลเรียบร้อยแล้ว', 'success');
                         fetchDataForClass(manageState.currentClass);
                     } catch(error) { showToast('ลบข้อมูลไม่สำเร็จ', 'danger'); }
                     hideLoader();
