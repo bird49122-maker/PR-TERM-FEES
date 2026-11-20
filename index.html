@@ -1385,11 +1385,18 @@
                         </button>
                     </div>
 
-                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6" id="advisorDashStats">
+                    <!-- การ์ดสถิติจำนวนนักเรียน -->
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4" id="advisorDashStats">
                         <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 skeleton h-28"></div>
                         <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 skeleton h-28"></div>
                         <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 skeleton h-28"></div>
                         <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 skeleton h-28"></div>
+                    </div>
+
+                    <!-- การ์ดสรุปยอดเงินของห้อง (วันนี้ & สะสมทั้งหมด) -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6" id="advisorMoneyStats">
+                        <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 skeleton h-24"></div>
+                        <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 skeleton h-24"></div>
                     </div>
                     
                     <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 w-full h-64 mb-8 hidden" id="advisorChartContainer">
@@ -1427,6 +1434,29 @@
                     payments = pays || [];
                 }
 
+                // คำนวณยอดเงินวันนี้ และยอดเงินสะสมทั้งหมดของห้อง
+                const dateObj = new Date();
+                const localY = dateObj.getFullYear();
+                const localM = dateObj.getMonth();
+                const localD = dateObj.getDate();
+
+                const feeAmountMap = {};
+                (fees || []).forEach(f => { feeAmountMap[f.id] = Number(f.amount) || 0; });
+
+                let todayTotalAmount = 0;
+                let roomTotalAmount = 0;
+
+                payments.forEach(p => {
+                    const amt = feeAmountMap[p.fee_item_id] || 0;
+                    roomTotalAmount += amt;
+                    if (p.paid_at) {
+                        const pDate = new Date(p.paid_at);
+                        if (pDate.getFullYear() === localY && pDate.getMonth() === localM && pDate.getDate() === localD) {
+                            todayTotalAmount += amt;
+                        }
+                    }
+                });
+
                 const total = students ? students.length : 0;
                 let fullyPaid = 0, partialPaid = 0, unpaid = 0;
                 const payCounts = {};
@@ -1460,6 +1490,23 @@
                     <div class="bg-white p-4 md:p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between"><div><p class="text-slate-500 text-xs md:text-sm">ชำระครบ</p><h3 class="text-2xl md:text-3xl font-bold text-success">${fullyPaid}</h3></div><div class="bg-emerald-100 p-3 rounded-xl text-success hidden md:block"><i data-lucide="check-circle"></i></div></div>
                     <div class="bg-white p-4 md:p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between"><div><p class="text-slate-500 text-xs md:text-sm">ยังไม่ครบ</p><h3 class="text-2xl md:text-3xl font-bold text-amber-500">${partialPaid}</h3></div><div class="bg-amber-100 p-3 rounded-xl text-amber-600 hidden md:block"><i data-lucide="clock"></i></div></div>
                     <div class="bg-white p-4 md:p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between"><div><p class="text-slate-500 text-xs md:text-sm">ยังไม่จ่าย</p><h3 class="text-2xl md:text-3xl font-bold text-danger">${unpaid}</h3></div><div class="bg-red-100 p-3 rounded-xl text-danger hidden md:block"><i data-lucide="alert-circle"></i></div></div>
+                `;
+
+                document.getElementById('advisorMoneyStats').innerHTML = `
+                    <div class="bg-gradient-to-r from-emerald-500 to-teal-600 p-5 rounded-2xl shadow-sm text-white flex items-center justify-between">
+                        <div>
+                            <p class="text-emerald-100 text-sm font-medium mb-1">ยอดรับชำระวันนี้ (นำส่งการเงิน)</p>
+                            <h3 class="text-2xl md:text-3xl font-bold">${formatCurrency(todayTotalAmount)} <span class="text-base font-normal">บาท</span></h3>
+                        </div>
+                        <div class="bg-white/20 p-3.5 rounded-xl"><i data-lucide="banknote" class="w-7 h-7 text-white"></i></div>
+                    </div>
+                    <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between">
+                        <div>
+                            <p class="text-slate-500 text-sm font-medium mb-1">ยอดรับชำระสะสมทั้งหมดของห้อง</p>
+                            <h3 class="text-2xl md:text-3xl font-bold text-indigo-600">${formatCurrency(roomTotalAmount)} <span class="text-base font-normal text-slate-500">บาท</span></h3>
+                        </div>
+                        <div class="bg-indigo-50 p-3.5 rounded-xl text-indigo-600"><i data-lucide="wallet" class="w-7 h-7"></i></div>
+                    </div>
                 `;
                 
                 if (total > 0) {
@@ -1838,30 +1885,34 @@
             let receiptRows = '';
             let receiptNos = new Set();
             let payDates = new Set();
-            
-            checkedBoxes.forEach((c, index) => {
-                const feeId = c.value;
-                const feeItem = modalState.fees.find(f => f.id === feeId);
-                const payRecord = modalState.payments.find(p => p.fee_item_id === feeId);
-                
-                if(feeItem && payRecord) {
+
+            // วนลูปแสดงรายการค่าเทอม "ทั้งหมด" ของห้องเรียนนั้น
+            modalState.fees.forEach((feeItem, index) => {
+                const payRecord = modalState.payments.find(p => p.fee_item_id === feeItem.id && p.is_paid);
+                let amountDisplay = '-';
+                let remarkDisplay = '-';
+
+                // ถ้ารายการนี้จ่ายแล้ว ให้บวกยอดเงินและเก็บเลขที่ใบเสร็จ/วันที่
+                if (payRecord) {
                     totalAmount += Number(feeItem.amount);
-                    if(payRecord.receipt_no) receiptNos.add(payRecord.receipt_no);
-                    if(payRecord.paid_at) {
+                    amountDisplay = formatCurrency(feeItem.amount);
+
+                    if (payRecord.receipt_no) receiptNos.add(payRecord.receipt_no);
+                    if (payRecord.paid_at) {
                         const dateObj = new Date(payRecord.paid_at);
                         const thaiMonths = ["มกราคม","กุมภาพันธ์","มีนาคม","เมษายน","พฤษภาคม","มิถุนายน","กรกฎาคม","สิงหาคม","กันยายน","ตุลาคม","พฤศจิกายน","ธันวาคม"];
                         payDates.add(`${dateObj.getDate()} ${thaiMonths[dateObj.getMonth()]} ${dateObj.getFullYear() + 543}`);
                     }
-
-                    receiptRows += `
-                        <tr>
-                            <td style="border: 1px solid #000; padding: 6px; text-align: center;">${index + 1}</td>
-                            <td style="border: 1px solid #000; padding: 6px;">${feeItem.title}</td>
-                            <td style="border: 1px solid #000; padding: 6px; text-align: center;">${formatCurrency(feeItem.amount)}</td>
-                            <td style="border: 1px solid #000; padding: 6px; text-align: center;">-</td>
-                        </tr>
-                    `;
                 }
+
+                receiptRows += `
+                    <tr>
+                        <td style="border: 1px solid #000; padding: 6px; text-align: center;">${index + 1}</td>
+                        <td style="border: 1px solid #000; padding: 6px;">${feeItem.title}</td>
+                        <td style="border: 1px solid #000; padding: 6px; text-align: center;">${amountDisplay}</td>
+                        <td style="border: 1px solid #000; padding: 6px; text-align: center;">${remarkDisplay}</td>
+                    </tr>
+                `;
             });
 
             const rNoStr = Array.from(receiptNos).join(', ') || '-';
